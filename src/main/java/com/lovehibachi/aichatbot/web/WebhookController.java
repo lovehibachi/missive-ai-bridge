@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/webhooks")
 public class WebhookController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebhookController.class);
+
     private final SignatureVerifier signatureVerifier;
     private final WebhookIntakeService intakeService;
     private final BridgeProperties properties;
@@ -44,6 +48,7 @@ public class WebhookController {
         String messageId = firstText(root.path("latest_message").path("id"), root.path("message").path("id"));
         require(messageId, "Missive message id");
         String eventType = root.path("rule").path("type").asText("incoming_twilio_chat_message");
+        LOGGER.info("Received verified Missive webhook: eventType={}, messageId={}", eventType, messageId);
         intakeService.accept("missive", messageId, eventType, payload);
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
@@ -62,6 +67,7 @@ public class WebhookController {
         if (isBlank(eventId)) {
             eventId = eventName + ":" + sha256(payload);
         }
+        LOGGER.info("Received verified Fin webhook: eventName={}, eventId={}", eventName, eventId);
         intakeService.accept("fin", eventId, eventName, payload);
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
