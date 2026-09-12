@@ -7,6 +7,10 @@ import com.lovehibachi.aichatbot.service.SignatureVerifier;
 import com.lovehibachi.aichatbot.service.WebhookIntakeService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
@@ -64,9 +68,16 @@ public class WebhookController {
     public ResponseEntity<Void> fin(
             @RequestHeader(value = "X-Fin-Agent-API-Webhook-Signature", required = false) String finSignature,
             @RequestHeader(value = "X-Webhook-Signature", required = false) String genericSignature,
+            HttpServletRequest request,
             @RequestBody String payload) {
-        verify(properties.getFin().getWebhookSecret(),
-                !isBlank(finSignature) ? finSignature : genericSignature, payload);
+        String signature = !isBlank(finSignature) ? finSignature : genericSignature;
+        if (!signatureVerifier.isValid(properties.getFin().getWebhookSecret(), signature, payload)) {
+            LOGGER.warn("Rejected Fin webhook signature: finHeaderPresent={}, genericHeaderPresent={}, "
+                            + "signatureHeaderNames={}, payloadBytes={}",
+                    !isBlank(finSignature), !isBlank(genericSignature), signatureHeaderNames(request),
+                    payload.getBytes(StandardCharsets.UTF_8).length);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook signature");
+        }
         JsonNode root = read(payload);
         String eventName = root.path("event_name").asText();
         require(eventName, "Fin event_name");
@@ -83,6 +94,12 @@ public class WebhookController {
         if (!signatureVerifier.isValid(secret, signature, payload)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook signature");
         }
+    }
+
+    private String signatureHeaderNames(HttpServletRequest request) {
+        return Collections.list(request.getHeaderNames()).stream()
+                .filter(name -> name.toLowerCase(Locale.ROOT).contains("signature"))
+                .collect(Collectors.joining(","));
     }
 
     private JsonNode read(String payload) {
