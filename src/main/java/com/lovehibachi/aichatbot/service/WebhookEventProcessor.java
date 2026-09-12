@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebhookEventProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
-    private static final long FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS = 5L;
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -72,32 +71,6 @@ public class WebhookEventProcessor {
         }
         for (WebhookEvent event : eventRepository.findTop50ByStatusOrderByCreatedAtAsc(EventStatus.RETRY)) {
             process(event.getId());
-        }
-    }
-
-    /**
-     * Fin normally closes a reply cycle with fin_status_updated. This fallback
-     * prevents a verified reply from being withheld when that final notification
-     * is delayed or lost. Each later Fin reply resets the short debounce timer.
-     */
-    @Scheduled(fixedDelay = 1000L)
-    @Transactional
-    public void flushStaleFinReplies() {
-        Instant cutoff = Instant.now().minusSeconds(FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS);
-        for (FinSession session : sessionRepository
-                .findTop50ByStatusAndReplyBufferIsNotNullAndReplyReceivedAtBeforeOrderByReplyReceivedAtAsc("replying", cutoff)) {
-            try {
-                ChatConversation conversation = session.getConversation();
-                LOGGER.warn("Finalizing stale Fin reply without status event: finConversationId={}, missiveConversationId={}, waitSeconds={}",
-                        session.getFinConversationId(), conversation.getMissiveConversationId(),
-                        FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS);
-                flushReply(session, conversation);
-                session.setStatus("awaiting_user_reply");
-                sessionRepository.save(session);
-            } catch (Exception exception) {
-                LOGGER.warn("Unable to finalize stale Fin reply: finConversationId={}, errorType={}",
-                        session.getFinConversationId(), exception.getClass().getSimpleName());
-            }
         }
     }
 
@@ -214,14 +187,21 @@ public class WebhookEventProcessor {
         if ("fin_replied".equals(eventName)) {
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
-                session.setReplyBuffer(appendReplyPart(session.getReplyBuffer(), answer));
-                session.setReplyReceivedAt(Instant.now());
+                /*
+                 * Fin's API documentation describes a later fin_status_updated event as
+                 * the end of a reply cycle. In this workspace, verified production-like
+                 * webhook traffic has only delivered fin_replied events, despite using
+                 * the documented API version. Do not withhold a customer-visible answer
+                 * while waiting for that undocumented-in-practice terminal notification.
+                 *
+                 * If Fin starts consistently delivering terminal events again, reassess
+                 * whether multi-part replies should be aggregated before sending.
+                 */
+                sendReplyImmediately(session, conversation, answer);
             }
-            String replyStatus = root.path("status").asText();
-            if (!replyStatus.isEmpty()) { session.setStatus(replyStatus); }
-            if ("awaiting_user_reply".equals(replyStatus)) {
-                flushReply(session, conversation);
-            }
+            // The immediate customer reply begins the next turn, regardless of Fin's
+            // intermediate "replying" status in this webhook.
+            session.setStatus("awaiting_user_reply");
             sessionRepository.save(session);
             return;
         }
@@ -268,8 +248,12 @@ public class WebhookEventProcessor {
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
     }
-    private String appendReplyPart(String existing, String part) {
-        return existing == null || existing.trim().isEmpty() ? part : existing + "\n" + part;
+    private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
+        if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
+        LOGGER.info("Sending Fin reply to Missive immediately: finConversationId={}, missiveConversationId={}, bodyLength={}",
+                session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
+        missiveClient.sendFinReply(conversation, reply);
+        recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
         String reply = session.getReplyBuffer();
