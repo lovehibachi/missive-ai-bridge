@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: fin-missive-bridge
+  datasource:
+    url: ${DATABASE_URL:}
+    username: ${DATABASE_USERNAME:}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+bridge:
+  missive:
+    api-base-url: ${MISSIVE_API_BASE_URL:https://public.missiveapp.com}
+    fin-ai-pat: ${MISSIVE_FIN_AI_PAT:}
+    webhook-secret: ${MISSIVE_WEBHOOK_SECRET:}
+    live-chat-account-id: ${MISSIVE_LIVE_CHAT_ACCOUNT_ID:}
+    organization-id: ${MISSIVE_ORGANIZATION_ID:}
+    need-human-label-id: ${MISSIVE_NEED_HUMAN_LABEL_ID:}
+  fin:
+    api-base-url: ${FIN_API_BASE_URL:https://api.intercom.io}
+    api-key: ${FIN_API_KEY:}
+    webhook-secret: ${FIN_WEBHOOK_SECRET:}
+    api-version: ${FIN_API_VERSION:2.16}
+  rules:
+    immediate-handoff-patterns:
+      - '(?i)\\b(human agent|live agent|representative|speak to (a )?person|talk to (a )?human)\\b'
+      - '(?i)\\b(cancel my order|request (a )?refund|refund my deposit|chargeback)\\b'
+      - '(?i)\\b(allergy|allergic reaction|food poisoning|got sick|injured|legal action)\\b'
+
+logging:
+  level:
+    com.lovehibachi.aichatbot: INFO

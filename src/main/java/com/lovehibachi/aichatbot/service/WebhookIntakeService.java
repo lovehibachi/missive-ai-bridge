@@ -1,0 +1,36 @@
+package com.lovehibachi.aichatbot.service;
+
+import com.lovehibachi.aichatbot.domain.EventStatus;
+import com.lovehibachi.aichatbot.domain.WebhookEvent;
+import com.lovehibachi.aichatbot.repository.WebhookEventRepository;
+import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+
+@Service
+public class WebhookIntakeService {
+    private final WebhookEventRepository eventRepository;
+    private final WebhookEventProcessor processor;
+
+    public WebhookIntakeService(WebhookEventRepository eventRepository, WebhookEventProcessor processor) {
+        this.eventRepository = eventRepository;
+        this.processor = processor;
+    }
+
+    public void accept(String provider, String externalEventId, String eventType, String payload) {
+        Optional<WebhookEvent> existing = eventRepository.findByProviderAndExternalEventId(provider, externalEventId);
+        if (existing.isPresent()) { return; }
+        WebhookEvent event = new WebhookEvent();
+        event.setProvider(provider);
+        event.setExternalEventId(externalEventId);
+        event.setEventType(eventType);
+        event.setPayload(payload);
+        event.setStatus(EventStatus.RECEIVED);
+        try {
+            eventRepository.saveAndFlush(event);
+            processor.processAsync(event.getId());
+        } catch (DataIntegrityViolationException duplicate) {
+            // Concurrent webhook retries may race; the unique constraint is the final idempotency guard.
+        }
+    }
+}
