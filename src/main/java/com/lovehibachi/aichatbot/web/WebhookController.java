@@ -8,6 +8,7 @@ import com.lovehibachi.aichatbot.service.WebhookIntakeService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
@@ -85,7 +86,14 @@ public class WebhookController {
         }
         JsonNode root = read(payload);
         String eventName = root.path("event_name").asText();
-        require(eventName, "Fin event_name");
+        // The Intercom settings-page test uses a signed generic webhook payload,
+        // while actual Fin Agent events always carry event_name. Acknowledging the
+        // test after signature verification proves the endpoint is reachable and
+        // does not enqueue it as a Fin conversation event.
+        if (isBlank(eventName)) {
+            LOGGER.info("Accepted verified non-Fin webhook test event: rootFields={}", rootFieldNames(root));
+            return ResponseEntity.ok().build();
+        }
         String eventId = firstText(root.path("id"), root.path("event_id"), root.path("message").path("id"));
         if (isBlank(eventId)) {
             eventId = eventName + ":" + sha256(payload);
@@ -105,6 +113,16 @@ public class WebhookController {
         return Collections.list(request.getHeaderNames()).stream()
                 .filter(name -> name.toLowerCase(Locale.ROOT).contains("signature"))
                 .collect(Collectors.joining(","));
+    }
+
+    private String rootFieldNames(JsonNode root) {
+        StringBuilder result = new StringBuilder();
+        Iterator<String> names = root.fieldNames();
+        while (names.hasNext()) {
+            if (result.length() > 0) { result.append(','); }
+            result.append(names.next());
+        }
+        return result.toString();
     }
 
     private JsonNode read(String payload) {
