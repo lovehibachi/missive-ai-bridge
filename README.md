@@ -45,6 +45,7 @@ export MISSIVE_NEED_HUMAN_LABEL_ID='...'
 
 export FIN_API_KEY='...'
 export FIN_WEBHOOK_SECRET='...'
+export INTERCOM_CLIENT_SECRET='...'
 ```
 
 可选环境变量：`MISSIVE_API_BASE_URL`、`FIN_API_BASE_URL`、`FIN_API_VERSION`。默认值分别是 `https://public.missiveapp.com`、`https://api.intercom.io`、`2.16`。

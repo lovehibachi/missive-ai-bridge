@@ -24,6 +24,7 @@ bridge:
     api-base-url: ${FIN_API_BASE_URL:https://api.intercom.io}
     api-key: ${FIN_API_KEY:}
     webhook-secret: ${FIN_WEBHOOK_SECRET:}
+    client-secret: ${INTERCOM_CLIENT_SECRET:}
     api-version: ${FIN_API_VERSION:2.16}
   rules:
     immediate-handoff-patterns:

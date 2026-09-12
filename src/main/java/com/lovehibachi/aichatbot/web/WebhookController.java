@@ -68,13 +68,18 @@ public class WebhookController {
     public ResponseEntity<Void> fin(
             @RequestHeader(value = "X-Fin-Agent-API-Webhook-Signature", required = false) String finSignature,
             @RequestHeader(value = "X-Webhook-Signature", required = false) String genericSignature,
+            @RequestHeader(value = "X-Hub-Signature", required = false) String hubSignature,
             HttpServletRequest request,
             @RequestBody String payload) {
         String signature = !isBlank(finSignature) ? finSignature : genericSignature;
-        if (!signatureVerifier.isValid(properties.getFin().getWebhookSecret(), signature, payload)) {
-            LOGGER.warn("Rejected Fin webhook signature: finHeaderPresent={}, genericHeaderPresent={}, "
+        boolean valid = !isBlank(hubSignature)
+                ? signatureVerifier.isValidIntercomHubSignature(
+                        properties.getFin().getClientSecret(), hubSignature, payload)
+                : signatureVerifier.isValid(properties.getFin().getWebhookSecret(), signature, payload);
+        if (!valid) {
+            LOGGER.warn("Rejected Fin webhook signature: finHeaderPresent={}, genericHeaderPresent={}, hubHeaderPresent={}, "
                             + "signatureHeaderNames={}, payloadBytes={}",
-                    !isBlank(finSignature), !isBlank(genericSignature), signatureHeaderNames(request),
+                    !isBlank(finSignature), !isBlank(genericSignature), !isBlank(hubSignature), signatureHeaderNames(request),
                     payload.getBytes(StandardCharsets.UTF_8).length);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook signature");
         }
