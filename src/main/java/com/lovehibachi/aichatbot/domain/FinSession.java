@@ -36,6 +36,9 @@ public class FinSession {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "reply_received_at")
+    private Instant replyReceivedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -58,4 +61,6 @@ public class FinSession {
     public void setReplyBuffer(String value) { this.replyBuffer = value; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant value) { this.completedAt = value; }
+    public Instant getReplyReceivedAt() { return replyReceivedAt; }
+    public void setReplyReceivedAt(Instant value) { this.replyReceivedAt = value; }
 }

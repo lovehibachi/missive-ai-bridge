@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebhookEventProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
+    private static final long FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS = 5L;
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -71,6 +72,32 @@ public class WebhookEventProcessor {
         }
         for (WebhookEvent event : eventRepository.findTop50ByStatusOrderByCreatedAtAsc(EventStatus.RETRY)) {
             process(event.getId());
+        }
+    }
+
+    /**
+     * Fin normally closes a reply cycle with fin_status_updated. This fallback
+     * prevents a verified reply from being withheld when that final notification
+     * is delayed or lost. Each later Fin reply resets the short debounce timer.
+     */
+    @Scheduled(fixedDelay = 1000L)
+    @Transactional
+    public void flushStaleFinReplies() {
+        Instant cutoff = Instant.now().minusSeconds(FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS);
+        for (FinSession session : sessionRepository
+                .findTop50ByStatusAndReplyBufferIsNotNullAndReplyReceivedAtBeforeOrderByReplyReceivedAtAsc("replying", cutoff)) {
+            try {
+                ChatConversation conversation = session.getConversation();
+                LOGGER.warn("Finalizing stale Fin reply without status event: finConversationId={}, missiveConversationId={}, waitSeconds={}",
+                        session.getFinConversationId(), conversation.getMissiveConversationId(),
+                        FIN_REPLY_FINALIZATION_TIMEOUT_SECONDS);
+                flushReply(session, conversation);
+                session.setStatus("awaiting_user_reply");
+                sessionRepository.save(session);
+            } catch (Exception exception) {
+                LOGGER.warn("Unable to finalize stale Fin reply: finConversationId={}, errorType={}",
+                        session.getFinConversationId(), exception.getClass().getSimpleName());
+            }
         }
     }
 
@@ -188,6 +215,7 @@ public class WebhookEventProcessor {
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
                 session.setReplyBuffer(appendReplyPart(session.getReplyBuffer(), answer));
+                session.setReplyReceivedAt(Instant.now());
             }
             String replyStatus = root.path("status").asText();
             if (!replyStatus.isEmpty()) { session.setStatus(replyStatus); }
@@ -252,6 +280,7 @@ public class WebhookEventProcessor {
             recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
         }
         session.setReplyBuffer(null);
+        session.setReplyReceivedAt(null);
     }
     private String required(JsonNode value, String field) {
         if (value == null || value.asText().trim().isEmpty()) { throw new IllegalArgumentException("Missing Fin " + field); }
