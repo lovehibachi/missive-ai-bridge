@@ -49,7 +49,7 @@ public class WebhookController {
     public ResponseEntity<Void> missiveInbound(
             @RequestHeader(value = "X-Hook-Signature", required = false) String signature,
             @RequestBody String payload) {
-        verify(properties.getMissive().getWebhookSecret(), signature, payload);
+        verify("Missive", properties.getMissive().getWebhookSecret(), signature, payload);
         JsonNode root = read(payload);
         String messageId = firstText(root.path("latest_message").path("id"), root.path("message").path("id"));
         require(messageId, "Missive message id");
@@ -103,8 +103,10 @@ public class WebhookController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
-    private void verify(String secret, String signature, String payload) {
+    private void verify(String provider, String secret, String signature, String payload) {
         if (!signatureVerifier.isValid(secret, signature, payload)) {
+            LOGGER.warn("Rejected {} webhook signature: signatureHeaderPresent={}, payloadBytes={}",
+                    provider, !isBlank(signature), payload == null ? 0 : payload.getBytes(StandardCharsets.UTF_8).length);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook signature");
         }
     }

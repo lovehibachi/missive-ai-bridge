@@ -16,6 +16,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WebhookEventProcessor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -75,6 +78,8 @@ public class WebhookEventProcessor {
     public void process(String eventId) {
         WebhookEvent event = eventRepository.findById(eventId).orElse(null);
         if (event == null || event.getStatus() == EventStatus.COMPLETED || event.getStatus() == EventStatus.IGNORED) { return; }
+        LOGGER.info("Processing webhook event: eventId={}, provider={}, externalEventId={}, eventType={}, priorStatus={}",
+                event.getId(), event.getProvider(), event.getExternalEventId(), event.getEventType(), event.getStatus());
         event.setStatus(EventStatus.PROCESSING);
         eventRepository.save(event);
         try {
@@ -84,19 +89,28 @@ public class WebhookEventProcessor {
                 processFin(event);
             } else {
                 event.setStatus(EventStatus.IGNORED);
+                LOGGER.info("Ignored webhook event with unsupported provider: eventId={}, provider={}",
+                        event.getId(), event.getProvider());
                 return;
             }
             if (event.getStatus() != EventStatus.IGNORED) {
                 event.setStatus(EventStatus.COMPLETED);
                 event.setProcessedAt(Instant.now());
                 event.setErrorMessage(null);
+                LOGGER.info("Completed webhook event: eventId={}, provider={}, externalEventId={}, eventType={}",
+                        event.getId(), event.getProvider(), event.getExternalEventId(), event.getEventType());
             }
         } catch (DeferredMessageException deferred) {
             event.setStatus(EventStatus.RETRY);
             event.setErrorMessage(deferred.getMessage());
+            LOGGER.info("Deferred webhook event for retry: eventId={}, provider={}, externalEventId={}, reason={}",
+                    event.getId(), event.getProvider(), event.getExternalEventId(), deferred.getMessage());
         } catch (Exception exception) {
             event.setStatus(EventStatus.RETRY);
             event.setErrorMessage(shortMessage(exception));
+            LOGGER.warn("Webhook event failed and will retry: eventId={}, provider={}, externalEventId={}, eventType={}, errorType={}, reason={}",
+                    event.getId(), event.getProvider(), event.getExternalEventId(), event.getEventType(),
+                    exception.getClass().getSimpleName(), shortMessage(exception));
         }
         eventRepository.save(event);
     }
@@ -118,10 +132,14 @@ public class WebhookEventProcessor {
         recordMessage(conversation, inbound.getMessageId(), "user", inbound.getBody());
 
         if (conversation.getState() != ConversationState.AI_HANDLING) {
+            LOGGER.info("Ignored Missive message because conversation is not AI-handled: eventId={}, missiveConversationId={}, state={}",
+                    event.getId(), conversation.getMissiveConversationId(), conversation.getState());
             return;
         }
         String hardRule = hardRuleEngine.matchingRule(inbound.getBody());
         if (hardRule != null) {
+            LOGGER.info("Escalating Missive conversation by hard rule: eventId={}, missiveConversationId={}, rule={}",
+                    event.getId(), conversation.getMissiveConversationId(), hardRule);
             handoffService.requestHuman(conversation, hardRule);
             return;
         }
@@ -134,12 +152,17 @@ public class WebhookEventProcessor {
             newSession.setFinConversationId("fin:missive:" + conversation.getMissiveConversationId() + ":cycle:" + UUID.randomUUID().toString());
             newSession.setStatus("thinking");
             sessionRepository.save(newSession);
+            LOGGER.info("Starting Fin session: eventId={}, missiveConversationId={}, finConversationId={}, cycle={}",
+                    event.getId(), conversation.getMissiveConversationId(), newSession.getFinConversationId(),
+                    newSession.getCycleNumber());
             finClient.start(newSession, conversation, inbound.getBody(), historyBeforeCurrent(conversation, inbound.getMessageId()));
             return;
         }
         if ("awaiting_user_reply".equals(active.getStatus())) {
             active.setStatus("thinking");
             sessionRepository.save(active);
+            LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",
+                    event.getId(), conversation.getMissiveConversationId(), active.getFinConversationId());
             finClient.reply(active, conversation, inbound.getBody());
             return;
         }
@@ -150,10 +173,17 @@ public class WebhookEventProcessor {
         JsonNode root = objectMapper.readTree(event.getPayload());
         String finConversationId = required(root.path("conversation_id"), "conversation_id");
         Optional<FinSession> found = sessionRepository.findByFinConversationId(finConversationId);
-        if (!found.isPresent()) { event.setStatus(EventStatus.IGNORED); return; }
+        if (!found.isPresent()) {
+            event.setStatus(EventStatus.IGNORED);
+            LOGGER.info("Ignored Fin event with unknown conversation: eventId={}, finConversationId={}, eventName={}",
+                    event.getId(), finConversationId, root.path("event_name").asText());
+            return;
+        }
         FinSession session = found.get();
         ChatConversation conversation = session.getConversation();
         String eventName = root.path("event_name").asText();
+        LOGGER.info("Processing Fin event: eventId={}, eventName={}, finConversationId={}, missiveConversationId={}",
+                event.getId(), eventName, finConversationId, conversation.getMissiveConversationId());
         if ("fin_replied".equals(eventName)) {
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
@@ -176,6 +206,8 @@ public class WebhookEventProcessor {
             }
             sessionRepository.save(session);
             if ("escalated".equals(status)) {
+                LOGGER.info("Fin escalated conversation: eventId={}, finConversationId={}, missiveConversationId={}",
+                        event.getId(), finConversationId, conversation.getMissiveConversationId());
                 handoffService.requestHuman(conversation, root.path("reason").asText("Fin escalated"));
             }
             return;
@@ -209,6 +241,8 @@ public class WebhookEventProcessor {
     private void flushReply(FinSession session, ChatConversation conversation) {
         String reply = session.getReplyBuffer();
         if (conversation.getState() == ConversationState.AI_HANDLING && reply != null && !reply.trim().isEmpty()) {
+            LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
+                    session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
             missiveClient.sendFinReply(conversation, reply);
             recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
         }

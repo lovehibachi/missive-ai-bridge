@@ -9,11 +9,17 @@ import java.util.Map;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 public class MissiveClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MissiveClient.class);
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final BridgeProperties properties;
@@ -35,7 +41,7 @@ public class MissiveClient {
             draft.put("send", true);
             Map<String, Object> request = new LinkedHashMap<String, Object>();
             request.put("drafts", draft);
-            post("/v1/drafts", request);
+            post("send_fin_reply", "/v1/drafts", request, conversation.getMissiveConversationId());
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to build Missive Draft request", exception);
         }
@@ -57,16 +63,34 @@ public class MissiveClient {
         post.put("add_to_inbox", true);
         Map<String, Object> request = new LinkedHashMap<String, Object>();
         request.put("posts", post);
-        post("/v1/posts", request);
+        post("create_handoff_post", "/v1/posts", request, conversation.getMissiveConversationId());
     }
 
-    private void post(String path, Map<String, Object> body) {
+    private void post(String operation, String path, Map<String, Object> body, String missiveConversationId) {
         if (isBlank(properties.getMissive().getFinAiPat())) { throw new IllegalStateException("Missing MISSIVE_FIN_AI_PAT"); }
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(properties.getMissive().getFinAiPat());
         headers.setContentType(MediaType.APPLICATION_JSON);
-        restTemplate.postForEntity(properties.getMissive().getApiBaseUrl() + path, new HttpEntity<Map<String, Object>>(body, headers), String.class);
+        long startedAt = System.nanoTime();
+        LOGGER.info("Calling Missive API: operation={}, path={}, missiveConversationId={}",
+                operation, path, missiveConversationId);
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(properties.getMissive().getApiBaseUrl() + path,
+                    new HttpEntity<Map<String, Object>>(body, headers), String.class);
+            LOGGER.info("Missive API call succeeded: operation={}, path={}, missiveConversationId={}, httpStatus={}, durationMs={}",
+                    operation, path, missiveConversationId, response.getStatusCodeValue(), elapsedMillis(startedAt));
+        } catch (RestClientResponseException exception) {
+            LOGGER.warn("Missive API call failed: operation={}, path={}, missiveConversationId={}, httpStatus={}, durationMs={}, errorType={}",
+                    operation, path, missiveConversationId, exception.getRawStatusCode(), elapsedMillis(startedAt),
+                    exception.getClass().getSimpleName());
+            throw exception;
+        } catch (RestClientException exception) {
+            LOGGER.warn("Missive API call failed: operation={}, path={}, missiveConversationId={}, durationMs={}, errorType={}",
+                    operation, path, missiveConversationId, elapsedMillis(startedAt), exception.getClass().getSimpleName());
+            throw exception;
+        }
     }
+    private long elapsedMillis(long startedAt) { return (System.nanoTime() - startedAt) / 1000000L; }
     private String safeReason(String reason) { return reason == null || reason.trim().isEmpty() ? "需要人工处理" : reason; }
     private boolean isBlank(String value) { return value == null || value.trim().isEmpty(); }
 }

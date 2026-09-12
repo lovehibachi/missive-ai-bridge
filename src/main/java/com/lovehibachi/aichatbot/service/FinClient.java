@@ -14,11 +14,17 @@ import java.util.Map;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 public class FinClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FinClient.class);
     private final RestTemplate restTemplate;
     private final BridgeProperties properties;
 
@@ -44,18 +50,20 @@ public class FinClient {
             metadata.put("history", messages);
             request.put("conversation_metadata", metadata);
         }
-        post("/fin/start", request);
+        post("start", "/fin/start", request, session.getFinConversationId(),
+                conversation.getMissiveConversationId());
     }
 
     public void reply(FinSession session, ChatConversation conversation, String body) {
-        post("/fin/reply", request(session, conversation, body));
+        post("reply", "/fin/reply", request(session, conversation, body), session.getFinConversationId(),
+                conversation.getMissiveConversationId());
     }
 
     public void escalate(FinSession session, String reason) {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("conversation_id", session.getFinConversationId());
         body.put("context", reason);
-        post("/fin/escalate", body);
+        post("escalate", "/fin/escalate", body, session.getFinConversationId(), null);
     }
 
     private Map<String, Object> request(FinSession session, ChatConversation conversation, String text) {
@@ -72,14 +80,33 @@ public class FinClient {
         return body;
     }
 
-    private void post(String path, Map<String, Object> body) {
+    private void post(String operation, String path, Map<String, Object> body,
+                      String finConversationId, String missiveConversationId) {
         if (isBlank(properties.getFin().getApiKey())) { throw new IllegalStateException("Missing FIN_API_KEY"); }
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(properties.getFin().getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Intercom-Version", properties.getFin().getApiVersion());
-        restTemplate.postForEntity(properties.getFin().getApiBaseUrl() + path, new HttpEntity<Map<String, Object>>(body, headers), String.class);
+        long startedAt = System.nanoTime();
+        LOGGER.info("Calling Fin API: operation={}, path={}, finConversationId={}, missiveConversationId={}",
+                operation, path, finConversationId, missiveConversationId);
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(properties.getFin().getApiBaseUrl() + path,
+                    new HttpEntity<Map<String, Object>>(body, headers), String.class);
+            LOGGER.info("Fin API call succeeded: operation={}, path={}, finConversationId={}, httpStatus={}, durationMs={}",
+                    operation, path, finConversationId, response.getStatusCodeValue(), elapsedMillis(startedAt));
+        } catch (RestClientResponseException exception) {
+            LOGGER.warn("Fin API call failed: operation={}, path={}, finConversationId={}, httpStatus={}, durationMs={}, errorType={}",
+                    operation, path, finConversationId, exception.getRawStatusCode(), elapsedMillis(startedAt),
+                    exception.getClass().getSimpleName());
+            throw exception;
+        } catch (RestClientException exception) {
+            LOGGER.warn("Fin API call failed: operation={}, path={}, finConversationId={}, durationMs={}, errorType={}",
+                    operation, path, finConversationId, elapsedMillis(startedAt), exception.getClass().getSimpleName());
+            throw exception;
+        }
     }
 
+    private long elapsedMillis(long startedAt) { return (System.nanoTime() - startedAt) / 1000000L; }
     private boolean isBlank(String value) { return value == null || value.trim().isEmpty(); }
 }
