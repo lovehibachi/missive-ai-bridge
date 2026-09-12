@@ -224,6 +224,11 @@ public class WebhookEventProcessor {
                 conversation.getId(), currentMessageId);
     }
     private void recordMessage(ChatConversation conversation, String externalMessageId, String author, String body) {
+        if (messageRepository.existsByExternalMessageId(externalMessageId)) {
+            LOGGER.info("Skipped duplicate chat message persistence: missiveConversationId={}, externalMessageId={}, author={}",
+                    conversation.getMissiveConversationId(), externalMessageId, author);
+            return;
+        }
         ChatMessage message = new ChatMessage();
         message.setConversation(conversation);
         message.setExternalMessageId(externalMessageId);
