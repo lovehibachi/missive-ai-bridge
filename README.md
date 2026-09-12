@@ -71,6 +71,16 @@ Webhook 端点：
 
 二者都应部署在 HTTPS 后。服务只在签名正确后返回 `202 Accepted`；后续调用在后台执行，避免 Missive 的 15 秒 Webhook 超时。
 
+## Linux 部署
+
+仓库包含生产化部署的基础文件：
+
+- `deploy/fin-missive-bridge.service`：以低权限 `finbridge` 用户运行的 systemd 服务；
+- `deploy/fin-missive-bridge.nginx.conf`：仅暴露 `/health` 和 `/webhooks/` 的 Nginx 反向代理；
+- `deploy/bridge.env.example`：服务器环境文件模板，真实文件固定为 `/etc/fin-missive-bridge/bridge.env`，权限应为 `root:finbridge`、`0640`。
+
+应用应绑定 `127.0.0.1:8080`，不直接将 Spring Boot 端口暴露到公网。Nginx 的 HTTP 站点可用于启动验证；在 Missive/Fin 配置真实 Webhook 前，必须给测试服务器绑定域名并配置受信任的 HTTPS 证书。
+
 ## 验收顺序
 
 1. 在测试 Live Chat 发一条普通问题，确认 Missive Rule 收到 Webhook，服务调用 `/fin/start`。
