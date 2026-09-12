@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -51,6 +52,12 @@ public class WebhookController {
         LOGGER.info("Received verified Missive webhook: eventType={}, messageId={}", eventType, messageId);
         intakeService.accept("missive", messageId, eventType, payload);
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+    }
+
+    /** Intercom probes configured Fin callback URLs with HEAD before sending signed events. */
+    @RequestMapping(value = "/fin", method = RequestMethod.HEAD)
+    public ResponseEntity<Void> finProbe() {
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/fin")
