@@ -26,4 +26,22 @@ class MissiveInboundMessageTest {
         assertEquals("live-account-1", snapshot.getAccountId());
         assertTrue(snapshot.getToFieldsJson().contains("visitor-1"));
     }
+
+    @Test
+    void supportsNativeLiveChatMessagePayload() throws Exception {
+        BridgeProperties properties = new BridgeProperties();
+        properties.getMissive().setLiveChatAccountId("live-chat-account");
+        MissiveInboundMessage parser = new MissiveInboundMessage(new ObjectMapper(), properties);
+        String payload = "{\"conversation\":{\"id\":\"conversation-2\"},"
+                + "\"message\":{\"id\":\"message-2\",\"preview\":\"What is the price?\","
+                + "\"from_field\":{\"id\":\"visitor-2\",\"name\":\"Visitor\"}}}";
+
+        MissiveInboundMessage.Snapshot snapshot = parser.parse(payload);
+
+        assertEquals("conversation-2", snapshot.getConversationId());
+        assertEquals("message-2", snapshot.getMessageId());
+        assertEquals("missive:visitor-2", snapshot.getVisitorId());
+        assertEquals("What is the price?", snapshot.getBody());
+        assertEquals("live-chat-account", snapshot.getAccountId());
+    }
 }
