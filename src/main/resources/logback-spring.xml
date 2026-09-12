@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="LOG_DIR" value="${LOG_DIR:-/var/log/fin-missive-bridge}"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-/opt/fin-missive-bridge/log}"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
