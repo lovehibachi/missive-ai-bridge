@@ -160,8 +160,6 @@ public class WebhookEventProcessor {
         }
         if ("awaiting_user_reply".equals(active.getStatus())) {
             active.setStatus("thinking");
-            // Only a real customer message opens the next Fin response cycle.
-            active.setReplyCycleCompletedAt(null);
             sessionRepository.save(active);
             LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",
                     event.getId(), conversation.getMissiveConversationId(), active.getFinConversationId());
@@ -187,19 +185,6 @@ public class WebhookEventProcessor {
         LOGGER.info("Processing Fin event: eventId={}, eventName={}, finConversationId={}, missiveConversationId={}",
                 event.getId(), eventName, finConversationId, conversation.getMissiveConversationId());
         if ("fin_replied".equals(eventName)) {
-            if (session.getReplyCycleCompletedAt() != null) {
-                /*
-                 * Fin has sent fresh fin_replied events after awaiting_user_reply
-                 * without a new customer message. The documented 2.16 completion
-                 * callback is fin_status_updated, but this workspace has also
-                 * observed the legacy status directly on fin_replied. Treat either
-                 * form as final for this turn and do not expose later unsolicited
-                 * Fin replies. A new Missive customer message clears this marker.
-                 */
-                LOGGER.info("Ignored unsolicited Fin reply after completed response cycle: eventId={}, finConversationId={}, missiveConversationId={}",
-                        event.getId(), finConversationId, conversation.getMissiveConversationId());
-                return;
-            }
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
                 /*
@@ -217,9 +202,6 @@ public class WebhookEventProcessor {
             // The immediate customer reply begins the next turn, regardless of Fin's
             // intermediate "replying" status in this webhook.
             session.setStatus("awaiting_user_reply");
-            if ("awaiting_user_reply".equals(root.path("status").asText())) {
-                markReplyCycleCompleted(session, "fin_replied status");
-            }
             sessionRepository.save(session);
             return;
         }
@@ -228,7 +210,6 @@ public class WebhookEventProcessor {
             session.setStatus(status);
             if ("complete".equals(status) || "escalated".equals(status)) { session.setCompletedAt(Instant.now()); }
             if ("awaiting_user_reply".equals(status) || "complete".equals(status) || "resolved".equals(status)) {
-                markReplyCycleCompleted(session, "fin_status_updated");
                 flushReply(session, conversation);
             }
             sessionRepository.save(session);
@@ -266,11 +247,6 @@ public class WebhookEventProcessor {
 
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
-    }
-    private void markReplyCycleCompleted(FinSession session, String source) {
-        session.setReplyCycleCompletedAt(Instant.now());
-        LOGGER.info("Marked Fin response cycle complete: finConversationId={}, source={}",
-                session.getFinConversationId(), source);
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
