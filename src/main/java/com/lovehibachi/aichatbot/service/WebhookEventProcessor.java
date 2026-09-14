@@ -160,6 +160,8 @@ public class WebhookEventProcessor {
         }
         if ("awaiting_user_reply".equals(active.getStatus())) {
             active.setStatus("thinking");
+            // A real customer message starts a new display turn.
+            active.setFirstReplySentAt(null);
             sessionRepository.save(active);
             LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",
                     event.getId(), conversation.getMissiveConversationId(), active.getFinConversationId());
@@ -185,6 +187,18 @@ public class WebhookEventProcessor {
         LOGGER.info("Processing Fin event: eventId={}, eventName={}, finConversationId={}, missiveConversationId={}",
                 event.getId(), eventName, finConversationId, conversation.getMissiveConversationId());
         if ("fin_replied".equals(eventName)) {
+            if (session.getFirstReplySentAt() != null) {
+                /*
+                 * Workaround experiment: treat the first non-empty Fin reply after
+                 * each real customer message as the entire answer. Do not inspect
+                 * fin_replied status (including legacy awaiting_user_reply), because
+                 * this branch deliberately tests whether client-side suppression
+                 * alone can prevent repeated follow-up messages.
+                 */
+                LOGGER.info("Ignored additional Fin reply for current customer turn: eventId={}, finConversationId={}, missiveConversationId={}",
+                        event.getId(), finConversationId, conversation.getMissiveConversationId());
+                return;
+            }
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
                 /*
@@ -196,8 +210,9 @@ public class WebhookEventProcessor {
                  *
                  * If Fin starts consistently delivering terminal events again, reassess
                  * whether multi-part replies should be aggregated before sending.
-                 */
+                */
                 sendReplyImmediately(session, conversation, answer);
+                session.setFirstReplySentAt(Instant.now());
             }
             // The immediate customer reply begins the next turn, regardless of Fin's
             // intermediate "replying" status in this webhook.

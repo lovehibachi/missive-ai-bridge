@@ -77,9 +77,6 @@ public class FinClient {
         Map<String, Object> user = new HashMap<String, Object>();
         user.put("id", conversation.getFinVisitorId());
         body.put("user", user);
-        Map<String, Object> settings = new LinkedHashMap<String, Object>();
-        settings.put("follow_up_questions", properties.getFin().isFollowUpQuestions());
-        body.put("settings", settings);
         return body;
     }
 
@@ -91,9 +88,8 @@ public class FinClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Intercom-Version", properties.getFin().getApiVersion());
         long startedAt = System.nanoTime();
-        LOGGER.info("Calling Fin API: operation={}, path={}, apiVersion={}, followUpQuestions={}, finConversationId={}, missiveConversationId={}",
-                operation, path, properties.getFin().getApiVersion(), properties.getFin().isFollowUpQuestions(),
-                finConversationId, missiveConversationId);
+        LOGGER.info("Calling Fin API: operation={}, path={}, apiVersion={}, finConversationId={}, missiveConversationId={}",
+                operation, path, properties.getFin().getApiVersion(), finConversationId, missiveConversationId);
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(properties.getFin().getApiBaseUrl() + path,
                     new HttpEntity<Map<String, Object>>(body, headers), String.class);

@@ -19,18 +19,17 @@ import org.springframework.web.client.RestTemplate;
 
 class FinClientTest {
     @Test
-    void sendsExternalHelpdeskSettingOnFinStart() {
+    void doesNotSendFollowUpQuestionSettingOnWorkaroundBranch() {
         BridgeProperties properties = new BridgeProperties();
         properties.getFin().setApiBaseUrl("https://fin.example.test");
         properties.getFin().setApiKey("test-key");
         properties.getFin().setApiVersion("2.16");
-        properties.getFin().setFollowUpQuestions(false);
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
         server.expect(once(), requestTo("https://fin.example.test/fin/start"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Intercom-Version", "2.16"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"follow_up_questions\":false")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"settings\""))))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         ChatConversation conversation = new ChatConversation();

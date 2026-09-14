@@ -26,10 +26,6 @@ bridge:
     webhook-secret: ${FIN_WEBHOOK_SECRET:}
     client-secret: ${INTERCOM_CLIENT_SECRET:}
     api-version: ${FIN_API_VERSION:2.16}
-    # Required for an external helpdesk (Missive): avoid Fin's default follow-up
-    # questions after an answer. Fin documents that this disables its automatic
-    # handoff, so human handoff remains the bridge's explicit responsibility.
-    follow-up-questions: ${FIN_FOLLOW_UP_QUESTIONS:false}
   rules:
     immediate-handoff-patterns:
       - '(?i)\\b(human agent|live agent|representative|speak to (a )?person|talk to (a )?human)\\b'
