@@ -187,21 +187,17 @@ public class WebhookEventProcessor {
         if ("fin_replied".equals(eventName)) {
             String answer = root.path("message").path("body").asText();
             if (!answer.trim().isEmpty()) {
-                /*
-                 * Fin's API documentation describes a later fin_status_updated event as
-                 * the end of a reply cycle. In this workspace, verified production-like
-                 * webhook traffic has only delivered fin_replied events, despite using
-                 * the documented API version. Do not withhold a customer-visible answer
-                 * while waiting for that undocumented-in-practice terminal notification.
-                 *
-                 * If Fin starts consistently delivering terminal events again, reassess
-                 * whether multi-part replies should be aggregated before sending.
-                 */
-                sendReplyImmediately(session, conversation, answer);
+                bufferReplyPart(session, answer);
             }
-            // The immediate customer reply begins the next turn, regardless of Fin's
-            // intermediate "replying" status in this webhook.
-            session.setStatus("awaiting_user_reply");
+            // Strict v2.16 protocol: replying events are intermediate, and only
+            // fin_status_updated: awaiting_user_reply completes this response cycle.
+            // A legacy awaiting_user_reply value on fin_replied is logged but is not
+            // used as a completion fallback in this branch.
+            if ("awaiting_user_reply".equals(root.path("status").asText())) {
+                LOGGER.warn("Received legacy awaiting_user_reply on fin_replied; waiting for fin_status_updated: eventId={}, finConversationId={}",
+                        event.getId(), finConversationId);
+            }
+            session.setStatus("replying");
             sessionRepository.save(session);
             return;
         }
@@ -248,12 +244,12 @@ public class WebhookEventProcessor {
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
     }
-    private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
-        if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
-        LOGGER.info("Sending Fin reply to Missive immediately: finConversationId={}, missiveConversationId={}, bodyLength={}",
-                session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
-        missiveClient.sendFinReply(conversation, reply);
-        recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
+    private void bufferReplyPart(FinSession session, String reply) {
+        String existing = session.getReplyBuffer();
+        session.setReplyBuffer(existing == null || existing.trim().isEmpty() ? reply : existing + "\n\n" + reply);
+        session.setReplyReceivedAt(Instant.now());
+        LOGGER.info("Buffered Fin reply part until status completion: finConversationId={}, partLength={}",
+                session.getFinConversationId(), reply.length());
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
         String reply = session.getReplyBuffer();
