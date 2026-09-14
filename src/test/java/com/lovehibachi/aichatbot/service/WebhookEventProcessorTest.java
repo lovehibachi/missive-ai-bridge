@@ -98,6 +98,21 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void removesFinCitationWhenUrlIsWrappedInMarkdown() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        WebhookEvent reply = finReply("replying",
+                "* The final time is confirmed later. [2 <[https://intercom.help/example/booking](https://intercom.help/example/booking)>]");
+        when(eventRepository.findById("markdown-citation")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
+
+        processor().process("markdown-citation");
+
+        verify(missiveClient).sendFinReply(conversation, "* The final time is confirmed later. ");
+    }
+
+    @Test
     void customerMessageReopensFirstReplyGuard() throws Exception {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);

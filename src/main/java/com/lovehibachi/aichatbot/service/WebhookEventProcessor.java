@@ -38,7 +38,7 @@ public class WebhookEventProcessor {
             Pattern.CASE_INSENSITIVE);
     /* Fin source citations are useful internally, but should not appear in the live-chat reply. */
     private static final Pattern FIN_SOURCE_CITATION = Pattern.compile(
-            "\\[\\d+\\s*<https?://[^>\\]\\s]+>\\]");
+            "\\[\\d+\\s*<(?:https?://[^>\\]\\s]+|\\[[^\\]]+\\]\\(https?://[^)\\s]+\\))>\\]");
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
