@@ -9,8 +9,14 @@ class FinReplyRendererTest {
 
     @Test
     void convertsMarkdownToMissiveSafeHtml() {
-        assertEquals("<p><strong>Welcome</strong></p><ul><li>One</li><li>Two</li></ul>",
+        assertEquals("<p><strong>Welcome</strong></p><p>• One<br>• Two</p>",
                 renderer.render("**Welcome**\n\n* One\n* Two"));
+    }
+
+    @Test
+    void convertsOrderedListToLiveChatSafeNumberedLines() {
+        assertEquals("<p>1. First<br>2. Second</p>",
+                renderer.render("1. First\n2. Second"));
     }
 
     @Test

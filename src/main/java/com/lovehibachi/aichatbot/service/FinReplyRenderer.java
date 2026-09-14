@@ -1,9 +1,14 @@
 package com.lovehibachi.aichatbot.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.parser.Tag;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Component;
 
@@ -29,12 +34,36 @@ public class FinReplyRenderer {
         String html = HTML_TAG.matcher(withoutCitations).find()
                 ? withoutCitations
                 : markdownRenderer.render(markdownParser.parse(withoutCitations));
-        return Jsoup.clean(html, "", ALLOWED_FORMATTING,
-                new Document.OutputSettings().prettyPrint(false))
-                .trim()
+        String sanitized = Jsoup.clean(html, "", ALLOWED_FORMATTING,
+                new Document.OutputSettings().prettyPrint(false));
+        Document document = Jsoup.parseBodyFragment(sanitized);
+        replaceListsWithLiveChatSafeBullets(document.body());
+        return document.body().html().trim()
                 // Markdown renderers add presentation-only newlines between tags.
                 // Keeping one stable compact form makes the outgoing body predictable.
-                .replaceAll(">\\s+<", "><");
+                .replaceAll(">\\s+<", "><")
+                .replaceAll("(?i)<br>\\s+", "<br>");
+    }
+
+    private void replaceListsWithLiveChatSafeBullets(Element body) {
+        /*
+         * Missive Live Chat turns <li> elements into literal '*' characters.
+         * Use plain Unicode markers plus <br> instead, which the widget renders
+         * consistently while still preserving the visual structure of the list.
+         */
+        List<Element> lists = new ArrayList<Element>(body.select("ul, ol"));
+        for (Element list : lists) {
+            Element replacement = new Element(Tag.valueOf("p"), "");
+            boolean ordered = "ol".equals(list.tagName());
+            int position = 1;
+            for (Element item : list.children()) {
+                if (!"li".equals(item.tagName())) { continue; }
+                if (!replacement.childNodes().isEmpty()) { replacement.appendElement("br"); }
+                replacement.appendText(ordered ? position++ + ". " : "• ");
+                replacement.appendChildren(new ArrayList<Node>(item.childNodes()));
+            }
+            list.replaceWith(replacement);
+        }
     }
 
     private String removeFinSourceCitations(String reply) {
