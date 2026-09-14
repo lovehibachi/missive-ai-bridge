@@ -26,12 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebhookEventProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
-    /* Fin source citations are useful internally, but should not appear in the live-chat reply. */
-    private static final java.util.regex.Pattern FIN_SOURCE_CITATION = java.util.regex.Pattern.compile(
-            "\\[\\d+\\s*<(?:https?://[^>\\]\\s]+|\\[[^\\]]+\\]\\(https?://[^)\\s]+\\))>\\]");
-    /* Intercom's API returns hidden Fin citations as HTML anchors, unlike its own UI. */
-    private static final java.util.regex.Pattern FIN_HTML_SOURCE_CITATION = java.util.regex.Pattern.compile(
-            "(?is)\\s*\\[\\s*<a(?=[^>]*\\bdata-inline-citation\\b)[^>]*>.*?</a>\\s*\\]");
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -42,6 +36,7 @@ public class WebhookEventProcessor {
     private final MissiveClient missiveClient;
     private final HandoffService handoffService;
     private final FinReplyTurnGate finReplyTurnGate;
+    private final FinReplyRenderer finReplyRenderer;
     private final ObjectMapper objectMapper;
 
     public WebhookEventProcessor(WebhookEventRepository eventRepository,
@@ -54,6 +49,7 @@ public class WebhookEventProcessor {
                                  MissiveClient missiveClient,
                                  HandoffService handoffService,
                                  FinReplyTurnGate finReplyTurnGate,
+                                 FinReplyRenderer finReplyRenderer,
                                  ObjectMapper objectMapper) {
         this.eventRepository = eventRepository;
         this.conversationRepository = conversationRepository;
@@ -65,6 +61,7 @@ public class WebhookEventProcessor {
         this.missiveClient = missiveClient;
         this.handoffService = handoffService;
         this.finReplyTurnGate = finReplyTurnGate;
+        this.finReplyRenderer = finReplyRenderer;
         this.objectMapper = objectMapper;
     }
 
@@ -210,7 +207,7 @@ public class WebhookEventProcessor {
                         event.getId(), finConversationId, conversation.getMissiveConversationId());
                 return;
             }
-            String answer = removeFinSourceCitations(root.path("message").path("body").asText());
+            String answer = finReplyRenderer.render(root.path("message").path("body").asText());
             if (!answer.trim().isEmpty()) {
                 /*
                  * Fin's API documentation describes a later fin_status_updated event as
@@ -274,16 +271,6 @@ public class WebhookEventProcessor {
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
     }
-    private String removeFinSourceCitations(String reply) {
-        if (reply == null || reply.isEmpty()) { return reply; }
-        /*
-         * Fin emits citations such as "[1 <https://example.com/article>]".
-         * Strip only that exact numbered-citation format, so ordinary markdown
-         * links and customer-facing URLs remain intact.
-         */
-        String withoutHtmlCitations = FIN_HTML_SOURCE_CITATION.matcher(reply).replaceAll("");
-        return FIN_SOURCE_CITATION.matcher(withoutHtmlCitations).replaceAll("");
-    }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
         LOGGER.info("Sending Fin reply to Missive immediately: finConversationId={}, missiveConversationId={}, bodyLength={}",
@@ -292,7 +279,7 @@ public class WebhookEventProcessor {
         recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
-        String reply = removeFinSourceCitations(session.getReplyBuffer());
+        String reply = finReplyRenderer.render(session.getReplyBuffer());
         if (conversation.getState() == ConversationState.AI_HANDLING && reply != null && !reply.trim().isEmpty()) {
             LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
                     session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());

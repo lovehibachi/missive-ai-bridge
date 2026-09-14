@@ -54,7 +54,7 @@ class WebhookEventProcessorTest {
         processor().process("first");
 
         assertNotNull(session.getFirstReplySentAt());
-        verify(missiveClient).sendFinReply(conversation, "First answer");
+        verify(missiveClient).sendFinReply(conversation, "<p>First answer</p>");
 
         processor().process("second");
 
@@ -73,7 +73,7 @@ class WebhookEventProcessorTest {
 
         processor().process("citation");
 
-        verify(missiveClient).sendFinReply(conversation, "Final price depends on your address. ");
+        verify(missiveClient).sendFinReply(conversation, "<p>Final price depends on your address.</p>");
     }
 
     @Test
@@ -88,7 +88,7 @@ class WebhookEventProcessorTest {
 
         processor().process("markdown-citation");
 
-        verify(missiveClient).sendFinReply(conversation, "* The final time is confirmed later. ");
+        verify(missiveClient).sendFinReply(conversation, "<ul><li>The final time is confirmed later.</li></ul>");
     }
 
     @Test
@@ -103,7 +103,7 @@ class WebhookEventProcessorTest {
 
         processor().process("html-citation");
 
-        verify(missiveClient).sendFinReply(conversation, "The final time is confirmed later.");
+        verify(missiveClient).sendFinReply(conversation, "<p>The final time is confirmed later.</p>");
     }
 
     @Test
@@ -150,7 +150,8 @@ class WebhookEventProcessorTest {
 
     private WebhookEventProcessor processor() {
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
-                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate, new ObjectMapper());
+                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate,
+                new FinReplyRenderer(), new ObjectMapper());
     }
 
     private WebhookEvent finReply(String status, String body) {
