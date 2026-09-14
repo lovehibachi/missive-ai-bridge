@@ -83,6 +83,21 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void removesFinNumberedSourceCitationBeforeSendingReply() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        WebhookEvent reply = finReply("replying",
+                "Final price depends on your address. [1 <https://intercom.help/example/pricing>]");
+        when(eventRepository.findById("citation")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
+
+        processor().process("citation");
+
+        verify(missiveClient).sendFinReply(conversation, "Final price depends on your address. ");
+    }
+
+    @Test
     void customerMessageReopensFirstReplyGuard() throws Exception {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);

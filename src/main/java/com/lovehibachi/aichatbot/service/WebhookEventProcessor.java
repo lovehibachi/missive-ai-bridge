@@ -36,6 +36,9 @@ public class WebhookEventProcessor {
     private static final Pattern GENERIC_FIN_FOLLOW_UP = Pattern.compile(
             "^\\s*is\\s+that\\s+what\\s+you(?:\\s+were|\\s+are|'re|’re)\\s+looking\\s+for\\?\\s*$",
             Pattern.CASE_INSENSITIVE);
+    /* Fin source citations are useful internally, but should not appear in the live-chat reply. */
+    private static final Pattern FIN_SOURCE_CITATION = Pattern.compile(
+            "\\[\\d+\\s*<https?://[^>\\]\\s]+>\\]");
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -209,7 +212,7 @@ public class WebhookEventProcessor {
                         event.getId(), finConversationId, conversation.getMissiveConversationId());
                 return;
             }
-            String answer = root.path("message").path("body").asText();
+            String answer = removeFinSourceCitations(root.path("message").path("body").asText());
             if (isGenericFinFollowUp(answer)) {
                 LOGGER.info("Ignored generic Fin follow-up: eventId={}, finConversationId={}, missiveConversationId={}",
                         event.getId(), finConversationId, conversation.getMissiveConversationId());
@@ -281,6 +284,15 @@ public class WebhookEventProcessor {
     private boolean isGenericFinFollowUp(String reply) {
         return reply != null && GENERIC_FIN_FOLLOW_UP.matcher(reply).matches();
     }
+    private String removeFinSourceCitations(String reply) {
+        if (reply == null || reply.isEmpty()) { return reply; }
+        /*
+         * Fin emits citations such as "[1 <https://example.com/article>]".
+         * Strip only that exact numbered-citation format, so ordinary markdown
+         * links and customer-facing URLs remain intact.
+         */
+        return FIN_SOURCE_CITATION.matcher(reply).replaceAll("");
+    }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
         LOGGER.info("Sending Fin reply to Missive immediately: finConversationId={}, missiveConversationId={}, bodyLength={}",
@@ -289,7 +301,7 @@ public class WebhookEventProcessor {
         recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
-        String reply = session.getReplyBuffer();
+        String reply = removeFinSourceCitations(session.getReplyBuffer());
         if (conversation.getState() == ConversationState.AI_HANDLING && reply != null && !reply.trim().isEmpty()) {
             LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
                     session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
