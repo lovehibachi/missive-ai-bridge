@@ -29,6 +29,9 @@ public class WebhookEventProcessor {
     /* Fin source citations are useful internally, but should not appear in the live-chat reply. */
     private static final java.util.regex.Pattern FIN_SOURCE_CITATION = java.util.regex.Pattern.compile(
             "\\[\\d+\\s*<(?:https?://[^>\\]\\s]+|\\[[^\\]]+\\]\\(https?://[^)\\s]+\\))>\\]");
+    /* Intercom's API returns hidden Fin citations as HTML anchors, unlike its own UI. */
+    private static final java.util.regex.Pattern FIN_HTML_SOURCE_CITATION = java.util.regex.Pattern.compile(
+            "(?is)\\s*\\[\\s*<a(?=[^>]*\\bdata-inline-citation\\b)[^>]*>.*?</a>\\s*\\]");
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -278,7 +281,8 @@ public class WebhookEventProcessor {
          * Strip only that exact numbered-citation format, so ordinary markdown
          * links and customer-facing URLs remain intact.
          */
-        return FIN_SOURCE_CITATION.matcher(reply).replaceAll("");
+        String withoutHtmlCitations = FIN_HTML_SOURCE_CITATION.matcher(reply).replaceAll("");
+        return FIN_SOURCE_CITATION.matcher(withoutHtmlCitations).replaceAll("");
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }

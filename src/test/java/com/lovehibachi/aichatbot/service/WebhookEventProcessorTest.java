@@ -92,6 +92,21 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void removesIntercomHtmlInlineCitationBeforeSendingReply() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        WebhookEvent reply = finReply("replying",
+                "The final time is confirmed later. [<a data-inline-citation=\"\" href=\"https://intercom.help/example/booking\">2</a>]");
+        when(eventRepository.findById("html-citation")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
+
+        processor().process("html-citation");
+
+        verify(missiveClient).sendFinReply(conversation, "The final time is confirmed later.");
+    }
+
+    @Test
     void customerMessageReopensFirstReplyGuard() throws Exception {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);
@@ -144,8 +159,12 @@ class WebhookEventProcessorTest {
         event.setExternalEventId(UUID.randomUUID().toString());
         event.setEventType("fin_replied");
         event.setPayload("{\"event_name\":\"fin_replied\",\"conversation_id\":\"fin-1\",\"status\":\""
-                + status + "\",\"message\":{\"body\":\"" + body + "\"}}");
+                + status + "\",\"message\":{\"body\":\"" + escapeJson(body) + "\"}}");
         event.setStatus(EventStatus.RECEIVED);
         return event;
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
