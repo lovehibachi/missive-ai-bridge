@@ -61,6 +61,28 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void ignoresGenericFinFollowUpWithoutUsingFirstReplySlot() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        WebhookEvent genericFollowUp = finReply("replying", "Is that what you were looking for?");
+        WebhookEvent answer = finReply("awaiting_user_reply", "The activity is available daily.");
+        when(eventRepository.findById("generic")).thenReturn(Optional.of(genericFollowUp));
+        when(eventRepository.findById("answer")).thenReturn(Optional.of(answer));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
+
+        processor().process("generic");
+
+        assertNull(session.getFirstReplySentAt());
+        verify(missiveClient, times(0)).sendFinReply(eq(conversation), anyString());
+
+        processor().process("answer");
+
+        assertNotNull(session.getFirstReplySentAt());
+        verify(missiveClient).sendFinReply(conversation, "The activity is available daily.");
+    }
+
+    @Test
     void customerMessageReopensFirstReplyGuard() throws Exception {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);

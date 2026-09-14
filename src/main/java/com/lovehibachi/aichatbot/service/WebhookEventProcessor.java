@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -26,6 +27,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebhookEventProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
+    /*
+     * Fin sometimes emits this stock follow-up as a separate fin_replied event.
+     * It is not a customer answer, so it must neither be displayed nor consume
+     * this turn's first-reply slot. Keep this narrow and explicit: do not try to
+     * infer intent from arbitrary Fin-generated answers.
+    */
+    private static final Pattern GENERIC_FIN_FOLLOW_UP = Pattern.compile(
+            "^\\s*is\\s+that\\s+what\\s+you(?:\\s+were|\\s+are|'re|’re)\\s+looking\\s+for\\?\\s*$",
+            Pattern.CASE_INSENSITIVE);
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -200,6 +210,11 @@ public class WebhookEventProcessor {
                 return;
             }
             String answer = root.path("message").path("body").asText();
+            if (isGenericFinFollowUp(answer)) {
+                LOGGER.info("Ignored generic Fin follow-up: eventId={}, finConversationId={}, missiveConversationId={}",
+                        event.getId(), finConversationId, conversation.getMissiveConversationId());
+                return;
+            }
             if (!answer.trim().isEmpty()) {
                 /*
                  * Fin's API documentation describes a later fin_status_updated event as
@@ -262,6 +277,9 @@ public class WebhookEventProcessor {
 
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
+    }
+    private boolean isGenericFinFollowUp(String reply) {
+        return reply != null && GENERIC_FIN_FOLLOW_UP.matcher(reply).matches();
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
