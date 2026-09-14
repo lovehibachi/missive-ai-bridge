@@ -3,6 +3,7 @@ package com.lovehibachi.aichatbot.web;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lovehibachi.aichatbot.config.BridgeProperties;
+import com.lovehibachi.aichatbot.service.FinReplyTurnGate;
 import com.lovehibachi.aichatbot.service.SignatureVerifier;
 import com.lovehibachi.aichatbot.service.WebhookIntakeService;
 import java.nio.charset.StandardCharsets;
@@ -32,15 +33,18 @@ public class WebhookController {
 
     private final SignatureVerifier signatureVerifier;
     private final WebhookIntakeService intakeService;
+    private final FinReplyTurnGate finReplyTurnGate;
     private final BridgeProperties properties;
     private final ObjectMapper objectMapper;
 
     public WebhookController(SignatureVerifier signatureVerifier,
                              WebhookIntakeService intakeService,
+                             FinReplyTurnGate finReplyTurnGate,
                              BridgeProperties properties,
                              ObjectMapper objectMapper) {
         this.signatureVerifier = signatureVerifier;
         this.intakeService = intakeService;
+        this.finReplyTurnGate = finReplyTurnGate;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -97,6 +101,18 @@ public class WebhookController {
         String eventId = firstText(root.path("id"), root.path("event_id"), root.path("message").path("id"));
         if (isBlank(eventId)) {
             eventId = eventName + ":" + sha256(payload);
+        }
+        if ("fin_replied".equals(eventName)) {
+            String finConversationId = root.path("conversation_id").asText();
+            if (!isBlank(finConversationId) && !finReplyTurnGate.claimFirstReply(finConversationId)) {
+                /*
+                 * Claim at receipt time, before asynchronous persistence/processing.
+                 * This makes arrival order decisive even when worker scheduling changes.
+                 */
+                LOGGER.info("Ignored later Fin reply at webhook intake: eventId={}, finConversationId={}",
+                        eventId, finConversationId);
+                return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+            }
         }
         LOGGER.info("Received verified Fin webhook: eventName={}, eventId={}", eventName, eventId);
         intakeService.accept("fin", eventId, eventName, payload);

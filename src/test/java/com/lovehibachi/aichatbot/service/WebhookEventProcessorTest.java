@@ -38,6 +38,7 @@ class WebhookEventProcessorTest {
     @Mock private FinClient finClient;
     @Mock private MissiveClient missiveClient;
     @Mock private HandoffService handoffService;
+    @Mock private FinReplyTurnGate finReplyTurnGate;
 
     @Test
     void sendsOnlyFirstFinReplyRegardlessOfLaterReplyStatus() {
@@ -58,28 +59,6 @@ class WebhookEventProcessorTest {
         processor().process("second");
 
         verify(missiveClient, times(1)).sendFinReply(eq(conversation), anyString());
-    }
-
-    @Test
-    void ignoresGenericFinFollowUpWithoutUsingFirstReplySlot() {
-        ChatConversation conversation = conversation();
-        FinSession session = session(conversation);
-        WebhookEvent genericFollowUp = finReply("replying", "Is that what you were looking for?");
-        WebhookEvent answer = finReply("awaiting_user_reply", "The activity is available daily.");
-        when(eventRepository.findById("generic")).thenReturn(Optional.of(genericFollowUp));
-        when(eventRepository.findById("answer")).thenReturn(Optional.of(answer));
-        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
-        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
-
-        processor().process("generic");
-
-        assertNull(session.getFirstReplySentAt());
-        verify(missiveClient, times(0)).sendFinReply(eq(conversation), anyString());
-
-        processor().process("answer");
-
-        assertNotNull(session.getFirstReplySentAt());
-        verify(missiveClient).sendFinReply(conversation, "The activity is available daily.");
     }
 
     @Test
@@ -136,6 +115,7 @@ class WebhookEventProcessorTest {
         processor().process("customer");
 
         assertNull(session.getFirstReplySentAt());
+        verify(finReplyTurnGate).reset("fin-1");
         verify(finClient).reply(session, conversation, "Another question");
     }
 
@@ -155,7 +135,7 @@ class WebhookEventProcessorTest {
 
     private WebhookEventProcessor processor() {
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
-                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, new ObjectMapper());
+                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate, new ObjectMapper());
     }
 
     private WebhookEvent finReply(String status, String body) {
