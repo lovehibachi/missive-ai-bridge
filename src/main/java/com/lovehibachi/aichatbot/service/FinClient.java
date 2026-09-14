@@ -88,8 +88,8 @@ public class FinClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Intercom-Version", properties.getFin().getApiVersion());
         long startedAt = System.nanoTime();
-        LOGGER.info("Calling Fin API: operation={}, path={}, finConversationId={}, missiveConversationId={}",
-                operation, path, finConversationId, missiveConversationId);
+        LOGGER.info("Calling Fin API: operation={}, path={}, apiVersion={}, finConversationId={}, missiveConversationId={}",
+                operation, path, properties.getFin().getApiVersion(), finConversationId, missiveConversationId);
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(properties.getFin().getApiBaseUrl() + path,
                     new HttpEntity<Map<String, Object>>(body, headers), String.class);
