@@ -76,7 +76,6 @@ public class MissiveClient {
         notification.put("body", safeReason(reason));
         post.put("notification", notification);
         post.put("add_shared_labels", java.util.Collections.singletonList(properties.getMissive().getNeedHumanLabelId()));
-        post.put("conversation_color", "warning");
         // Do not set Missive's reopen flag: true means keep a closed conversation
         // closed when adding the post. add_to_inbox below makes it actionable.
         post.put("add_to_inbox", true);
