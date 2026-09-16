@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -295,7 +296,15 @@ public class WebhookEventProcessor {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
     }
     private boolean isFinGuidanceHandoffMarker(String replyBody) {
-        return FIN_GUIDANCE_HANDOFF_MARKER.equals(replyBody == null ? "" : replyBody.trim());
+        /*
+         * Fin currently returns its reply body as HTML, even where Guidance is
+         * instructed to return an exact text marker (for example,
+         * <p>[[LH_HUMAN_HANDOFF]]</p>). Compare the complete rendered text rather
+         * than the raw transport body, while still requiring an exact match so a
+         * normal answer which merely mentions the marker cannot trigger handoff.
+         */
+        String plainText = replyBody == null ? "" : Jsoup.parseBodyFragment(replyBody).text().trim();
+        return FIN_GUIDANCE_HANDOFF_MARKER.equals(plainText);
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }

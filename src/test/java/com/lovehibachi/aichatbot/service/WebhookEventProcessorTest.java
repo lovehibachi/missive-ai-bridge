@@ -82,7 +82,8 @@ class WebhookEventProcessorTest {
     void finGuidanceHandoffMarkerRequestsHumanWithoutSendingItToVisitor() {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);
-        WebhookEvent reply = finReply("replying", "  [[LH_HUMAN_HANDOFF]]  ");
+        // Fin wraps even an exact Guidance reply in a paragraph in its webhook.
+        WebhookEvent reply = finReply("replying", "<p>  [[LH_HUMAN_HANDOFF]]  </p>");
         when(eventRepository.findById("handoff-marker")).thenReturn(Optional.of(reply));
         when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
 
