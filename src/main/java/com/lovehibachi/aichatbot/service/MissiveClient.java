@@ -66,7 +66,9 @@ public class MissiveClient {
     public void createHandoffPost(ChatConversation conversation, String reason) {
         Map<String, Object> post = new LinkedHashMap<String, Object>();
         post.put("conversation", conversation.getMissiveConversationId());
-        post.put("organization", properties.getMissive().getOrganizationId());
+        // This post is appended to an existing conversation, so Missive can infer
+        // its organization. Supplying a stale or unrelated organization ID causes
+        // the whole handoff request to be rejected before the visitor is notified.
         post.put("username", "Fin AI");
         post.put("markdown", "## 🤖 Fin 请求人工介入\n\n原因：" + safeReason(reason));
         Map<String, Object> notification = new LinkedHashMap<String, Object>();
@@ -75,7 +77,8 @@ public class MissiveClient {
         post.put("notification", notification);
         post.put("add_shared_labels", java.util.Collections.singletonList(properties.getMissive().getNeedHumanLabelId()));
         post.put("conversation_color", "warning");
-        post.put("reopen", true);
+        // Do not set Missive's reopen flag: true means keep a closed conversation
+        // closed when adding the post. add_to_inbox below makes it actionable.
         post.put("add_to_inbox", true);
         Map<String, Object> request = new LinkedHashMap<String, Object>();
         request.put("posts", post);
