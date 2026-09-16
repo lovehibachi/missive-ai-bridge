@@ -66,9 +66,9 @@ public class MissiveClient {
     public void createHandoffPost(ChatConversation conversation, String reason) {
         Map<String, Object> post = new LinkedHashMap<String, Object>();
         post.put("conversation", conversation.getMissiveConversationId());
-        // This post is appended to an existing conversation, so Missive can infer
-        // its organization. Supplying a stale or unrelated organization ID causes
-        // the whole handoff request to be rejected before the visitor is notified.
+        // Missive requires organization when applying shared labels. This must be
+        // the organization accessible to the configured AI API token.
+        post.put("organization", properties.getMissive().getOrganizationId());
         post.put("username", "Fin AI");
         post.put("markdown", "## 🤖 Fin 请求人工介入\n\n原因：" + safeReason(reason));
         Map<String, Object> notification = new LinkedHashMap<String, Object>();
