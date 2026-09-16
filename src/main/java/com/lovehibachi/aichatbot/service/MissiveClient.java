@@ -31,6 +31,22 @@ public class MissiveClient {
     }
 
     public void sendFinReply(ChatConversation conversation, String htmlBody) {
+        sendCustomerReply(conversation, htmlBody, "send_fin_reply");
+    }
+
+    /**
+     * Sends the visitor-facing acknowledgement after the bridge has transferred a
+     * conversation to the support team. It uses the same Live Chat account and
+     * recipient fields as a normal Fin reply, so it continues in the existing
+     * customer chat rather than creating a new conversation.
+     */
+    public void sendHumanHandoffAcknowledgement(ChatConversation conversation) {
+        sendCustomerReply(conversation,
+                "<p>We’re connecting you with a member of our team. Please hold on.</p>",
+                "send_human_handoff_acknowledgement");
+    }
+
+    private void sendCustomerReply(ChatConversation conversation, String htmlBody, String operation) {
         try {
             Map<String, Object> draft = new LinkedHashMap<String, Object>();
             draft.put("account", conversation.getLiveChatAccountId());
@@ -41,7 +57,7 @@ public class MissiveClient {
             draft.put("send", true);
             Map<String, Object> request = new LinkedHashMap<String, Object>();
             request.put("drafts", draft);
-            post("send_fin_reply", "/v1/drafts", request, conversation.getMissiveConversationId());
+            post(operation, "/v1/drafts", request, conversation.getMissiveConversationId());
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to build Missive Draft request", exception);
         }

@@ -2,11 +2,13 @@ package com.lovehibachi.aichatbot.service;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,6 +76,23 @@ class WebhookEventProcessorTest {
         processor().process("citation");
 
         verify(missiveClient).sendFinReply(conversation, "<p>Final price depends on your address.</p>");
+    }
+
+    @Test
+    void finGuidanceHandoffMarkerRequestsHumanWithoutSendingItToVisitor() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        WebhookEvent reply = finReply("replying", "  [[LH_HUMAN_HANDOFF]]  ");
+        when(eventRepository.findById("handoff-marker")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+
+        processor().process("handoff-marker");
+
+        verify(handoffService).requestHuman(conversation, "Fin Guidance requested human handoff");
+        verifyNoInteractions(missiveClient);
+        assertEquals("escalated", session.getStatus());
+        assertNotNull(session.getCompletedAt());
+        assertNull(session.getFirstReplySentAt());
     }
 
     @Test

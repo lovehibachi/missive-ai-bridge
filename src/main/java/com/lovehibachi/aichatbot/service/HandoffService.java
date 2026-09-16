@@ -34,6 +34,7 @@ public class HandoffService {
         conversation.setEscalationReason(reason);
         conversationRepository.save(conversation);
         missiveClient.createHandoffPost(conversation, reason);
+        missiveClient.sendHumanHandoffAcknowledgement(conversation);
         LOGGER.info("Human handoff posted to Missive: missiveConversationId={}", conversation.getMissiveConversationId());
     }
 }

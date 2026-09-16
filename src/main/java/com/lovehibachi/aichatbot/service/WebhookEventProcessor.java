@@ -26,6 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebhookEventProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebhookEventProcessor.class);
+    /**
+     * Deliberately opaque protocol value returned by Fin Guidance. It must be
+     * compared before rendering so the visitor never sees an internal control
+     * message. Do not use a substring match: normal support text could otherwise
+     * accidentally take a customer out of the AI flow.
+     */
+    private static final String FIN_GUIDANCE_HANDOFF_MARKER = "[[LH_HUMAN_HANDOFF]]";
     private final WebhookEventRepository eventRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatMessageRepository messageRepository;
@@ -207,7 +214,23 @@ public class WebhookEventProcessor {
                         event.getId(), finConversationId, conversation.getMissiveConversationId());
                 return;
             }
-            String answer = finReplyRenderer.render(root.path("message").path("body").asText());
+            String rawAnswer = root.path("message").path("body").asText();
+            if (isFinGuidanceHandoffMarker(rawAnswer)) {
+                /*
+                 * Fin Guidance returns this exact value when a customer explicitly
+                 * asks for a human. It is an internal bridge protocol, not a
+                 * customer-facing answer: raise the existing Missive handoff instead
+                 * of rendering or delivering the marker to the visitor.
+                 */
+                LOGGER.info("Fin Guidance requested human handoff: eventId={}, finConversationId={}, missiveConversationId={}",
+                        event.getId(), finConversationId, conversation.getMissiveConversationId());
+                handoffService.requestHuman(conversation, "Fin Guidance requested human handoff");
+                session.setStatus("escalated");
+                session.setCompletedAt(Instant.now());
+                sessionRepository.save(session);
+                return;
+            }
+            String answer = finReplyRenderer.render(rawAnswer);
             if (!answer.trim().isEmpty()) {
                 /*
                  * Fin's API documentation describes a later fin_status_updated event as
@@ -270,6 +293,9 @@ public class WebhookEventProcessor {
 
     private boolean isTerminal(String status) {
         return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
+    }
+    private boolean isFinGuidanceHandoffMarker(String replyBody) {
+        return FIN_GUIDANCE_HANDOFF_MARKER.equals(replyBody == null ? "" : replyBody.trim());
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
