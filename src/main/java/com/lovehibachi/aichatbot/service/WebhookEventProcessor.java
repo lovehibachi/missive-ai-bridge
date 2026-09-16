@@ -299,12 +299,13 @@ public class WebhookEventProcessor {
         /*
          * Fin currently returns its reply body as HTML, even where Guidance is
          * instructed to return an exact text marker (for example,
-         * <p>[[LH_HUMAN_HANDOFF]]</p>). Compare the complete rendered text rather
-         * than the raw transport body, while still requiring an exact match so a
-         * normal answer which merely mentions the marker cannot trigger handoff.
+         * <p>[[LH_HUMAN_HANDOFF]]</p>). Compare rendered text rather than the raw
+         * transport body. Fin may also add a newline or short explanation despite
+         * Guidance, so recognize the complete opaque marker anywhere in that text.
+         * This deliberately does not use natural-language keyword matching.
          */
         String plainText = replyBody == null ? "" : Jsoup.parseBodyFragment(replyBody).text().trim();
-        return FIN_GUIDANCE_HANDOFF_MARKER.equals(plainText);
+        return plainText.contains(FIN_GUIDANCE_HANDOFF_MARKER);
     }
     private void sendReplyImmediately(FinSession session, ChatConversation conversation, String reply) {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
