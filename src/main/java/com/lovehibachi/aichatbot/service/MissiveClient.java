@@ -64,6 +64,9 @@ public class MissiveClient {
     }
 
     public void createHandoffPost(ChatConversation conversation, String reason) {
+        if (isBlank(properties.getMissive().getHandoffTeamId())) {
+            throw new IllegalStateException("Missing MISSIVE_HANDOFF_TEAM_ID");
+        }
         Map<String, Object> post = new LinkedHashMap<String, Object>();
         post.put("conversation", conversation.getMissiveConversationId());
         // Missive requires organization when applying shared labels. This must be
@@ -76,6 +79,13 @@ public class MissiveClient {
         notification.put("body", safeReason(reason));
         post.put("notification", notification);
         post.put("add_shared_labels", java.util.Collections.singletonList(properties.getMissive().getNeedHumanLabelId()));
+        // Keep the existing conversation and its full Live Chat history, but
+        // move it to the dedicated handoff Team Inbox. force_team is required
+        // because the conversation is initially attached to the AI Chat team.
+        // Do not set add_assignees: agents claim the unassigned conversation
+        // manually from that shared inbox.
+        post.put("team", properties.getMissive().getHandoffTeamId());
+        post.put("force_team", true);
         // Do not set Missive's reopen flag: true means keep a closed conversation
         // closed when adding the post. add_to_inbox below makes it actionable.
         post.put("add_to_inbox", true);

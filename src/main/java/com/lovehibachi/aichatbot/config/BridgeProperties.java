@@ -24,6 +24,7 @@ public class BridgeProperties {
         private String liveChatAccountId;
         private String organizationId;
         private String needHumanLabelId;
+        private String handoffTeamId;
         public String getApiBaseUrl() { return apiBaseUrl; }
         public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
         public String getFinAiPat() { return finAiPat; }
@@ -36,6 +37,8 @@ public class BridgeProperties {
         public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
         public String getNeedHumanLabelId() { return needHumanLabelId; }
         public void setNeedHumanLabelId(String needHumanLabelId) { this.needHumanLabelId = needHumanLabelId; }
+        public String getHandoffTeamId() { return handoffTeamId; }
+        public void setHandoffTeamId(String handoffTeamId) { this.handoffTeamId = handoffTeamId; }
     }
 
     public static class Fin {
