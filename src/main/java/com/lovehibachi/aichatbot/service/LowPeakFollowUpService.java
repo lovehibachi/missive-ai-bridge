@@ -45,8 +45,7 @@ public class LowPeakFollowUpService {
     }
 
     private void sendFollowUpIfStillDue(FinSession session, Instant earliest, Instant due, Instant claimedAt) {
-        int claimed = sessionRepository.claimLowPeakFollowUp(session.getId(), earliest, due, claimedAt,
-                ConversationState.AI_HANDLING);
+        int claimed = sessionRepository.claimLowPeakFollowUp(session.getId(), earliest, due, claimedAt);
         if (claimed == 0) { return; }
         try {
             LOGGER.info("Sending low-peak booking follow-up: finConversationId={}, missiveConversationId={}",

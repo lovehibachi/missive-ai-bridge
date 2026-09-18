@@ -33,7 +33,7 @@ class LowPeakFollowUpServiceTest {
                         eq("awaiting_user_reply"), any(Instant.class), any(Instant.class), eq(ConversationState.AI_HANDLING)))
                 .thenReturn(Collections.singletonList(session));
         when(sessionRepository.claimLowPeakFollowUp(eq("session-1"), any(Instant.class), any(Instant.class),
-                any(Instant.class), eq(ConversationState.AI_HANDLING))).thenReturn(1);
+                any(Instant.class))).thenReturn(1);
 
         service(true).sendDueFollowUps();
 

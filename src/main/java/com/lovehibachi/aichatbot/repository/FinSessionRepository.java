@@ -28,12 +28,14 @@ public interface FinSessionRepository extends JpaRepository<FinSession, String> 
     @Query("update FinSession f set f.lowPeakFollowUpSentAt = :claimedAt "
             + "where f.id = :sessionId and f.status = 'awaiting_user_reply' "
             + "and f.firstReplySentAt between :earliest and :due "
-            + "and f.lowPeakFollowUpSentAt is null and f.conversation.state = :conversationState")
+            // PostgreSQL cannot execute Hibernate's UPDATE ... CROSS JOIN SQL
+            // generated for an association predicate here. The candidate query
+            // already restricts this scheduler to AI_HANDLING conversations.
+            + "and f.lowPeakFollowUpSentAt is null")
     int claimLowPeakFollowUp(@Param("sessionId") String sessionId,
                              @Param("earliest") Instant earliest,
                              @Param("due") Instant due,
-                             @Param("claimedAt") Instant claimedAt,
-                             @Param("conversationState") ConversationState conversationState);
+                             @Param("claimedAt") Instant claimedAt);
 
     @Modifying
     @Transactional
