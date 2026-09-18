@@ -42,6 +42,9 @@ public class FinSession {
     @Column(name = "first_reply_sent_at")
     private Instant firstReplySentAt;
 
+    @Column(name = "low_peak_follow_up_sent_at")
+    private Instant lowPeakFollowUpSentAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -68,4 +71,6 @@ public class FinSession {
     public void setReplyReceivedAt(Instant value) { this.replyReceivedAt = value; }
     public Instant getFirstReplySentAt() { return firstReplySentAt; }
     public void setFirstReplySentAt(Instant value) { firstReplySentAt = value; }
+    public Instant getLowPeakFollowUpSentAt() { return lowPeakFollowUpSentAt; }
+    public void setLowPeakFollowUpSentAt(Instant value) { lowPeakFollowUpSentAt = value; }
 }

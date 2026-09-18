@@ -177,6 +177,7 @@ public class WebhookEventProcessor {
             active.setStatus("thinking");
             // A real customer message starts a new display turn.
             active.setFirstReplySentAt(null);
+            active.setLowPeakFollowUpSentAt(null);
             sessionRepository.save(active);
             finReplyTurnGate.reset(active.getFinConversationId());
             LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",

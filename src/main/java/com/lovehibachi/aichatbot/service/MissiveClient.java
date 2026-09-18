@@ -10,6 +10,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.util.HtmlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -44,6 +45,21 @@ public class MissiveClient {
         sendCustomerReply(conversation,
                 "<p>We’re connecting you with a member of our team. Please hold on.</p>",
                 "send_human_handoff_acknowledgement");
+    }
+
+    /**
+     * Sends a single customer-facing follow-up after an unanswered Fin reply.
+     * This is HTML rather than Markdown because Missive Live Chat renders the
+     * latter as literal punctuation. The visible link label avoids exposing a
+     * long campaign URL in the visitor's chat window.
+     */
+    public void sendLowPeakFollowUp(ChatConversation conversation) {
+        String bookingUrl = properties.getPromotions().getLowPeakBookingUrl();
+        if (isBlank(bookingUrl)) { throw new IllegalStateException("Missing LOW_PEAK_BOOKING_URL"); }
+        String body = "<p>We have special offers for non-peak weekend times. You can click "
+                + "<a href=\"" + HtmlUtils.htmlEscape(bookingUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">here</a> "
+                + "to submit a booking request.</p>";
+        sendCustomerReply(conversation, body, "send_low_peak_follow_up");
     }
 
     private void sendCustomerReply(ChatConversation conversation, String htmlBody, String operation) {

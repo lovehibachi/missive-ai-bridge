@@ -9,6 +9,7 @@ public class BridgeProperties {
     private Missive missive = new Missive();
     private Fin fin = new Fin();
     private Rules rules = new Rules();
+    private Promotions promotions = new Promotions();
 
     public Missive getMissive() { return missive; }
     public void setMissive(Missive missive) { this.missive = missive; }
@@ -16,6 +17,8 @@ public class BridgeProperties {
     public void setFin(Fin fin) { this.fin = fin; }
     public Rules getRules() { return rules; }
     public void setRules(Rules rules) { this.rules = rules; }
+    public Promotions getPromotions() { return promotions; }
+    public void setPromotions(Promotions promotions) { this.promotions = promotions; }
 
     public static class Missive {
         private String apiBaseUrl = "https://public.missiveapp.com";
@@ -65,5 +68,21 @@ public class BridgeProperties {
         public void setImmediateHandoffPatterns(List<String> immediateHandoffPatterns) {
             this.immediateHandoffPatterns = immediateHandoffPatterns;
         }
+    }
+
+    public static class Promotions {
+        private boolean lowPeakFollowUpEnabled = true;
+        private long lowPeakFollowUpDelaySeconds = 60L;
+        private long lowPeakFollowUpMaxAgeSeconds = 300L;
+        private String lowPeakBookingUrl = "https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak";
+
+        public boolean isLowPeakFollowUpEnabled() { return lowPeakFollowUpEnabled; }
+        public void setLowPeakFollowUpEnabled(boolean value) { lowPeakFollowUpEnabled = value; }
+        public long getLowPeakFollowUpDelaySeconds() { return lowPeakFollowUpDelaySeconds; }
+        public void setLowPeakFollowUpDelaySeconds(long value) { lowPeakFollowUpDelaySeconds = value; }
+        public long getLowPeakFollowUpMaxAgeSeconds() { return lowPeakFollowUpMaxAgeSeconds; }
+        public void setLowPeakFollowUpMaxAgeSeconds(long value) { lowPeakFollowUpMaxAgeSeconds = value; }
+        public String getLowPeakBookingUrl() { return lowPeakBookingUrl; }
+        public void setLowPeakBookingUrl(String value) { lowPeakBookingUrl = value; }
     }
 }

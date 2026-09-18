@@ -19,6 +19,8 @@ Fin status=escalated / 硬规则命中
   -> 停止这条会话的后续 AI 写回
 ```
 
+当 Fin 已回复、客户在 60 秒内未继续发言时，服务会在同一会话发送一次低峰周末优惠引导；链接指向 Booking Request 并带 `utm_campaign=fin_low_peak`。每个客户提问轮次最多发送一次，客户再次发言后会为下一轮重新计时。为防止服务重启后骚扰旧会话，默认只处理最近 5 分钟内的 Fin 回复。
+
 服务使用 Fin 的 Webhook 作为可靠业务事件来源，不依赖浏览器 SSE。每个入站事件及 Fin 回复均按外部 ID 去重；不能立即完成的事件会持久化并重试。
 
 ## 前置配置
@@ -47,6 +49,11 @@ export MISSIVE_HANDOFF_TEAM_ID='...'
 export FIN_API_KEY='...'
 export FIN_WEBHOOK_SECRET='...'
 export INTERCOM_CLIENT_SECRET='...'
+
+export LOW_PEAK_FOLLOW_UP_ENABLED='true'
+export LOW_PEAK_FOLLOW_UP_DELAY_SECONDS='60'
+export LOW_PEAK_FOLLOW_UP_MAX_AGE_SECONDS='300'
+export LOW_PEAK_BOOKING_URL='https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak'
 ```
 
 可选环境变量：`MISSIVE_API_BASE_URL`、`FIN_API_BASE_URL`、`FIN_API_VERSION`。默认值分别是 `https://public.missiveapp.com`、`https://api.intercom.io`、`2.16`。

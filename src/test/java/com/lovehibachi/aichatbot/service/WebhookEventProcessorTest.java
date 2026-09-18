@@ -132,6 +132,7 @@ class WebhookEventProcessorTest {
         FinSession session = session(conversation);
         session.setStatus("awaiting_user_reply");
         session.setFirstReplySentAt(Instant.now());
+        session.setLowPeakFollowUpSentAt(Instant.now());
         WebhookEvent customerMessage = new WebhookEvent();
         customerMessage.setProvider("missive");
         customerMessage.setExternalEventId("message-1");
@@ -150,6 +151,7 @@ class WebhookEventProcessorTest {
         processor().process("customer");
 
         assertNull(session.getFirstReplySentAt());
+        assertNull(session.getLowPeakFollowUpSentAt());
         verify(finReplyTurnGate).reset("fin-1");
         verify(finClient).reply(session, conversation, "Another question");
     }

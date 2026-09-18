@@ -32,6 +32,12 @@ bridge:
       - '(?i)\\b(human agent|live agent|representative|speak to (a )?person|talk to (a )?human)\\b'
       - '(?i)\\b(cancel my order|request (a )?refund|refund my deposit|chargeback)\\b'
       - '(?i)\\b(allergy|allergic reaction|food poisoning|got sick|injured|legal action)\\b'
+  promotions:
+    low-peak-follow-up-enabled: ${LOW_PEAK_FOLLOW_UP_ENABLED:true}
+    low-peak-follow-up-delay-seconds: ${LOW_PEAK_FOLLOW_UP_DELAY_SECONDS:60}
+    # Do not send a stale promotion after a restart or an extended outage.
+    low-peak-follow-up-max-age-seconds: ${LOW_PEAK_FOLLOW_UP_MAX_AGE_SECONDS:300}
+    low-peak-booking-url: "${LOW_PEAK_BOOKING_URL:https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak}"
 
 logging:
   level:
