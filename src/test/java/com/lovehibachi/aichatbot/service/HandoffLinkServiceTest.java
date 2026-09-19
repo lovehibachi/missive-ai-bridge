@@ -34,7 +34,7 @@ class HandoffLinkServiceTest {
 
         String rendered = service.appendToFinReply(conversation, "<p>Answer</p>");
 
-        assertTrue(rendered.startsWith("<p>Answer</p><p>Need more help? {{ link:"));
+        assertTrue(rendered.startsWith("<p>Answer</p><p><br></p><p>Need more help? {{ link:"));
         assertTrue(rendered.contains("https://aiservices.letsgohibachi.com/handoff/"));
         assertTrue(rendered.endsWith(" Talk to a human }}</p>"));
         assertFalse(rendered.contains("<a "));

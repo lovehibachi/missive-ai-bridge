@@ -49,7 +49,9 @@ public class HandoffLinkService {
         link.setExpiresAt(Instant.now().plusSeconds(properties.getHandoffLinks().getTtlMinutes() * 60L));
         linkRepository.save(link);
         String href = publicBaseUrl() + "/handoff/" + token;
-        return answerHtml + "<p>Need more help? {{ link:" + href + " Talk to a human }}</p>";
+        // A blank paragraph is retained by the Live Chat widget, unlike CSS
+        // margins on <small>. Keep this CTA visually separate from Fin's answer.
+        return answerHtml + "<p><br></p><p>Need more help? {{ link:" + href + " Talk to a human }}</p>";
     }
 
     @Transactional(readOnly = true)
