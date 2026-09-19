@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.HtmlUtils;
 
 @Service
 public class HandoffLinkService {
@@ -35,9 +34,11 @@ public class HandoffLinkService {
     }
 
     /**
-     * Adds a visually secondary human-handoff link to a normal Fin reply. The
-     * opaque token is stored only as a hash, so a database read cannot be used
-     * to impersonate a visitor and request a handoff for their conversation.
+     * Adds a visitor-facing human-handoff link to a normal Fin reply. Missive
+     * Live Chat strips HTML anchors in API-sent messages, so this deliberately
+     * uses its documented text-link syntax instead of an HTML {@code <a>} tag.
+     * The opaque token is stored only as a hash, so a database read cannot be
+     * used to impersonate a visitor and request a handoff for their conversation.
      */
     @Transactional
     public String appendToFinReply(ChatConversation conversation, String answerHtml) {
@@ -48,8 +49,7 @@ public class HandoffLinkService {
         link.setExpiresAt(Instant.now().plusSeconds(properties.getHandoffLinks().getTtlMinutes() * 60L));
         linkRepository.save(link);
         String href = publicBaseUrl() + "/handoff/" + token;
-        return answerHtml + "<p><small>Need more help? <a href=\"" + HtmlUtils.htmlEscape(href)
-                + "\" target=\"_blank\" rel=\"noopener noreferrer\">Talk to a human</a></small></p>";
+        return answerHtml + "<p>Need more help? {{ link:" + href + " Talk to a human }}</p>";
     }
 
     @Transactional(readOnly = true)

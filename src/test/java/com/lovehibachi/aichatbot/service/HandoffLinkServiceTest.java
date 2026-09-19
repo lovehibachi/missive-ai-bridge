@@ -1,6 +1,7 @@
 package com.lovehibachi.aichatbot.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,15 +28,16 @@ class HandoffLinkServiceTest {
     @Mock private HandoffService handoffService;
 
     @Test
-    void appendsSmallHumanLinkWithoutPersistingTheRawToken() {
+    void appendsMissiveTextHumanLinkWithoutPersistingTheRawToken() {
         ChatConversation conversation = conversation();
         HandoffLinkService service = service();
 
         String rendered = service.appendToFinReply(conversation, "<p>Answer</p>");
 
-        assertTrue(rendered.startsWith("<p>Answer</p><p><small>"));
-        assertTrue(rendered.contains("Talk to a human</a></small></p>"));
+        assertTrue(rendered.startsWith("<p>Answer</p><p>Need more help? {{ link:"));
         assertTrue(rendered.contains("https://aiservices.letsgohibachi.com/handoff/"));
+        assertTrue(rendered.endsWith(" Talk to a human }}</p>"));
+        assertFalse(rendered.contains("<a "));
         ArgumentCaptor<HandoffLink> captured = ArgumentCaptor.forClass(HandoffLink.class);
         verify(linkRepository).save(captured.capture());
         assertEquals(conversation, captured.getValue().getConversation());
