@@ -21,7 +21,7 @@ Fin status=escalated / 硬规则命中
 
 当 Fin 已回复、客户在 60 秒内未继续发言时，服务会在同一会话发送一次低峰周末优惠引导；链接指向 Booking Request 并带 `utm_campaign=fin_low_peak`。每个客户提问轮次最多发送一次，客户再次发言后会为下一轮重新计时。为防止服务重启后骚扰旧会话，默认只处理最近 5 分钟内的 Fin 回复。
 
-每条普通 Fin 回复也会附带一行小字的 “Talk to a human” 链接。链接使用随机一次性 token，GET 只显示确认页；客户确认后，现有人工接管流程会在保留同一会话历史的前提下移入“人工接管”Team Inbox。
+普通 Fin 回复不附带“Talk to a human”链接，也不再创建新的 handoff token。Fin Guidance、Fin escalation status 与硬规则仍可触发人工接管；现有人工接管流程会在保留同一会话历史的前提下移入“人工接管”Team Inbox。保留的 `handoff_links` 仅用于已发出的旧链接及未来自建聊天前端的迁移参考。
 
 服务使用 Fin 的 Webhook 作为可靠业务事件来源，不依赖浏览器 SSE。每个入站事件及 Fin 回复均按外部 ID 去重；不能立即完成的事件会持久化并重试。
 
