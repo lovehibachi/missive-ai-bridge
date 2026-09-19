@@ -11,6 +11,7 @@ public class BridgeProperties {
     private Rules rules = new Rules();
     private Promotions promotions = new Promotions();
     private HandoffLinks handoffLinks = new HandoffLinks();
+    private Admin admin = new Admin();
 
     public Missive getMissive() { return missive; }
     public void setMissive(Missive missive) { this.missive = missive; }
@@ -22,6 +23,8 @@ public class BridgeProperties {
     public void setPromotions(Promotions promotions) { this.promotions = promotions; }
     public HandoffLinks getHandoffLinks() { return handoffLinks; }
     public void setHandoffLinks(HandoffLinks handoffLinks) { this.handoffLinks = handoffLinks; }
+    public Admin getAdmin() { return admin; }
+    public void setAdmin(Admin admin) { this.admin = admin; }
 
     public static class Missive {
         private String apiBaseUrl = "https://public.missiveapp.com";
@@ -31,6 +34,7 @@ public class BridgeProperties {
         private String organizationId;
         private String needHumanLabelId;
         private String handoffTeamId;
+        private String aiTeamId;
         public String getApiBaseUrl() { return apiBaseUrl; }
         public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
         public String getFinAiPat() { return finAiPat; }
@@ -45,6 +49,8 @@ public class BridgeProperties {
         public void setNeedHumanLabelId(String needHumanLabelId) { this.needHumanLabelId = needHumanLabelId; }
         public String getHandoffTeamId() { return handoffTeamId; }
         public void setHandoffTeamId(String handoffTeamId) { this.handoffTeamId = handoffTeamId; }
+        public String getAiTeamId() { return aiTeamId; }
+        public void setAiTeamId(String aiTeamId) { this.aiTeamId = aiTeamId; }
     }
 
     public static class Fin {
@@ -97,5 +103,12 @@ public class BridgeProperties {
         public void setPublicBaseUrl(String value) { publicBaseUrl = value; }
         public long getTtlMinutes() { return ttlMinutes; }
         public void setTtlMinutes(long value) { ttlMinutes = value; }
+    }
+
+    /** Credentials for deliberate operator actions; never expose this token to visitors. */
+    public static class Admin {
+        private String token;
+        public String getToken() { return token; }
+        public void setToken(String token) { this.token = token; }
     }
 }

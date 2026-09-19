@@ -21,6 +21,7 @@ bridge:
     organization-id: ${MISSIVE_ORGANIZATION_ID:}
     need-human-label-id: ${MISSIVE_NEED_HUMAN_LABEL_ID:}
     handoff-team-id: ${MISSIVE_HANDOFF_TEAM_ID:}
+    ai-team-id: ${MISSIVE_AI_TEAM_ID:}
   fin:
     api-base-url: ${FIN_API_BASE_URL:https://api.intercom.io}
     api-key: ${FIN_API_KEY:}
@@ -41,6 +42,8 @@ bridge:
   handoff-links:
     public-base-url: ${BRIDGE_PUBLIC_BASE_URL:https://aiservices.letsgohibachi.com}
     ttl-minutes: ${HANDOFF_LINK_TTL_MINUTES:1440}
+  admin:
+    token: ${BRIDGE_ADMIN_TOKEN:}
 
 logging:
   level:

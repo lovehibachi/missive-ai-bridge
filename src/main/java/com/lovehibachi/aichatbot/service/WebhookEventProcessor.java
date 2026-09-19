@@ -201,6 +201,15 @@ public class WebhookEventProcessor {
         FinSession session = found.get();
         ChatConversation conversation = session.getConversation();
         String eventName = root.path("event_name").asText();
+        if ("superseded".equals(session.getStatus())) {
+            // An operator resumed AI handling after a handoff. The next customer
+            // message starts a new Fin conversation, so never deliver delayed
+            // callbacks from the retired conversation into the restored chat.
+            event.setStatus(EventStatus.IGNORED);
+            LOGGER.info("Ignored Fin event for superseded session: eventId={}, finConversationId={}, eventName={}",
+                    event.getId(), finConversationId, eventName);
+            return;
+        }
         LOGGER.info("Processing Fin event: eventId={}, eventName={}, finConversationId={}, missiveConversationId={}",
                 event.getId(), eventName, finConversationId, conversation.getMissiveConversationId());
         if ("fin_replied".equals(eventName)) {
@@ -294,7 +303,8 @@ public class WebhookEventProcessor {
     }
 
     private boolean isTerminal(String status) {
-        return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status);
+        return "complete".equals(status) || "escalated".equals(status) || "resolved".equals(status)
+                || "superseded".equals(status);
     }
     private boolean isFinGuidanceHandoffMarker(String replyBody) {
         /*

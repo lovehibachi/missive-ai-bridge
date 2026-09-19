@@ -108,6 +108,35 @@ public class MissiveClient {
         post("create_handoff_post", "/v1/posts", request, conversation.getMissiveConversationId());
     }
 
+    /**
+     * Moves an escalated conversation back to the AI Team Inbox and clears the
+     * shared label that identifies it as requiring a human. This is an internal
+     * Missive post, so the visitor does not receive another chat message.
+     */
+    public void resumeAiHandling(ChatConversation conversation) {
+        if (isBlank(properties.getMissive().getAiTeamId())) {
+            throw new IllegalStateException("Missing MISSIVE_AI_TEAM_ID");
+        }
+        if (isBlank(properties.getMissive().getOrganizationId())) {
+            throw new IllegalStateException("Missing MISSIVE_ORGANIZATION_ID");
+        }
+        if (isBlank(properties.getMissive().getNeedHumanLabelId())) {
+            throw new IllegalStateException("Missing MISSIVE_NEED_HUMAN_LABEL_ID");
+        }
+        Map<String, Object> post = new LinkedHashMap<String, Object>();
+        post.put("conversation", conversation.getMissiveConversationId());
+        post.put("organization", properties.getMissive().getOrganizationId());
+        post.put("username", "Fin AI");
+        post.put("markdown", "🤖 已恢复由 Fin AI 处理");
+        post.put("remove_shared_labels", java.util.Collections.singletonList(properties.getMissive().getNeedHumanLabelId()));
+        post.put("team", properties.getMissive().getAiTeamId());
+        post.put("force_team", true);
+        post.put("add_to_inbox", true);
+        Map<String, Object> request = new LinkedHashMap<String, Object>();
+        request.put("posts", post);
+        post("resume_ai_handling", "/v1/posts", request, conversation.getMissiveConversationId());
+    }
+
     private void post(String operation, String path, Map<String, Object> body, String missiveConversationId) {
         if (isBlank(properties.getMissive().getFinAiPat())) { throw new IllegalStateException("Missing MISSIVE_FIN_AI_PAT"); }
         HttpHeaders headers = new HttpHeaders();

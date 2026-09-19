@@ -52,10 +52,30 @@ class MissiveClientTest {
         server.verify();
     }
 
+    @Test
+    void resumeAiMovesConversationAndRemovesHumanLabel() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        server.expect(requestTo("https://missive.example.test/v1/posts"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("\"team\":\"ai-team-1\"")))
+                .andExpect(content().string(containsString("\"force_team\":true")))
+                .andExpect(content().string(containsString("\"remove_shared_labels\":[\"need-human-label-1\"]")))
+                .andExpect(content().string(not(containsString("add_shared_labels"))))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client(restTemplate).resumeAiHandling(conversation());
+
+        server.verify();
+    }
+
     private MissiveClient client(RestTemplate restTemplate) {
         BridgeProperties properties = new BridgeProperties();
         properties.getMissive().setApiBaseUrl("https://missive.example.test");
         properties.getMissive().setFinAiPat("test-token");
+        properties.getMissive().setOrganizationId("organization-1");
+        properties.getMissive().setNeedHumanLabelId("need-human-label-1");
+        properties.getMissive().setAiTeamId("ai-team-1");
         properties.getPromotions().setLowPeakBookingUrl(
                 "https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak");
         return new MissiveClient(restTemplate, new ObjectMapper(), properties);

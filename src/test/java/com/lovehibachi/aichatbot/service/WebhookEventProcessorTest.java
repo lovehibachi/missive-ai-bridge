@@ -178,6 +178,21 @@ class WebhookEventProcessorTest {
         verifyNoInteractions(finClient, missiveClient);
     }
 
+    @Test
+    void ignoresLateFinReplyFromSupersededSessionAfterAiResume() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        session.setStatus("superseded");
+        WebhookEvent reply = finReply("replying", "A delayed old answer");
+        when(eventRepository.findById("late-reply")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+
+        processor().process("late-reply");
+
+        assertEquals(EventStatus.IGNORED, reply.getStatus());
+        verifyNoInteractions(missiveClient, handoffService);
+    }
+
     private ChatConversation conversation() {
         ChatConversation conversation = new ChatConversation();
         conversation.setMissiveConversationId("missive-1");

@@ -41,6 +41,10 @@ Bridge 不直接决定新客户会话初始位于哪个 Team。新会话的初�
 Bridge 检测到人工接管
   → MISSIVE_HANDOFF_TEAM_ID + force_team=true
   → 同一条会话移入人工接管 Team
+
+管理员恢复 AI
+  → MISSIVE_AI_TEAM_ID + force_team=true + remove_shared_labels
+  → 同一条会话移回 AI Team，下一条客户消息建立新的 Fin 会话
 ```
 
 在 Missive 中配置初始队列：**Settings → Accounts → 选择 Live Chat account → Share with… / Sharing options → Team Inbox → 选择 Team**。常用结构是将所有 AI 对话先路由到低提醒的 AI Team，仅在人工接管时由 Bridge 移入值班客服 Team。
@@ -53,10 +57,12 @@ Bridge 检测到人工接管
 | --- | --- | --- | --- |
 | `MISSIVE_LIVE_CHAT_ACCOUNT_ID` | Live Chat account ID；入站 payload 缺少 `account_id` 时作兜底。WordPress widget 的 `MissiveChatConfig.id` 必须与它一致。 | Settings → Accounts → 目标 Live Chat account → Setup，复制安装代码的 `id`。也可在 Settings → API → Resource IDs 查看。 | 若生产复用同一个 Live Chat account，可不换；否则必须换，且 WordPress 同步换。 |
 | `MISSIVE_HANDOFF_TEAM_ID` | 需要人工时将原会话移入的 Team Inbox。 | Settings → API → Resource IDs，或 `GET /v1/teams?organization=<organization-id>`。 | 若生产使用另一人工 Team 则换；复用同一 Team 则可不换。 |
+| `MISSIVE_AI_TEAM_ID` | 已恢复 AI 的会话移回的 Team Inbox；通常与 Live Chat account Sharing options 的默认 AI Team 相同。 | Settings → API → Resource IDs，或 `GET /v1/teams?organization=<organization-id>`。 | 若生产使用另一 AI Team 则换。 |
 | `MISSIVE_ORGANIZATION_ID` | 创建人工提醒 Post、管理共享标签时指定的 Organization。 | Settings → API → Resource IDs。 | 同一 Workspace 可不换。 |
 | `MISSIVE_NEED_HUMAN_LABEL_ID` | “需要人工接管”共享标签 ID。 | 在 Organization 创建/确认共享标签后，从 Settings → API → Resource IDs 获取。 | 同一 Workspace 的同一标签可不换。 |
 | `MISSIVE_FIN_AI_PAT` | Bridge 调用 Missive Draft/Post API 的 Bearer Token。 | 使用专门的 `Fin AI`/服务席位登录 Missive：Settings/Preferences → API → Create a new token。 | 同一 Workspace 技术上可复用；生产建议使用独立服务 token，便于最小权限和轮换。 |
 | `MISSIVE_WEBHOOK_SECRET` | 验证 Missive → Bridge 入站 webhook 的签名。 | 在 Missive Rule/Webhook 配置中生成并填入同一值。 | 应为生产单独生成。 |
+| `BRIDGE_ADMIN_TOKEN` | 保护 Bridge 私有管理员接口，例如恢复 AI。 | 在服务器上生成长随机值，仅写入 `bridge.env`。 | 应使用生产独立值。 |
 
 用于检查非敏感资源 ID 的示例（不要将真实 PAT 写进 shell history、文档或聊天记录）：
 
@@ -82,6 +88,7 @@ PAT = 是否有权限操作 Missive 资源
 account_id + conversation_id = 将回复写到哪个客户会话
 Sharing options = 新客户会话初始在哪个 Team
 handoff team ID = 人工接管后移到哪个 Team
+ai team ID = 管理员恢复 AI 后移回哪个 Team
 ```
 
 Fin 不知道 Missive Workspace，也不直接配置 Missive Team。
@@ -114,6 +121,17 @@ WordPress 不保存 Fin key、Missive PAT、webhook secret、人工 Team ID，�
 - Fin `fin_status_updated: escalated`。
 
 Bridge 随后保持同一 Missive 会话历史，创建内部提醒、加共享标签，并移入人工接管 Team。人工处理后，Bridge 不再向该会话发送 AI 回复。
+
+### 恢复 AI 处理
+
+当人工客服完成处理、希望后续新消息重新由 AI 回答时，使用受 `BRIDGE_ADMIN_TOKEN` 保护的操作：
+
+```text
+POST /admin/conversations/{missive_conversation_id}/resume-ai
+X-Bridge-Admin-Token: <BRIDGE_ADMIN_TOKEN>
+```
+
+它不会删除客户或客服的历史消息；会在 Missive 中移回 `MISSIVE_AI_TEAM_ID`、移除 `MISSIVE_NEED_HUMAN_LABEL_ID`，并把所有旧 Fin session 标为 `superseded`。因此旧 Fin 的延迟回调会被忽略，客户的**下一条**消息必定通过新的 `/fin/start` 开始全新 Fin 会话。接口不会向客户额外发送消息。此接口仅供运维人员调用，不能置入网页或浏览器代码。
 
 普通 Fin 回复**不再**附带“Talk to a human”链接，也不再创建新的 `handoff_links` token。历史 `handoff_links` 表、服务和 endpoint 暂时保留，使已发出的旧链接可在自身 TTL 内完成接管，也为未来迁移提供参考。
 
