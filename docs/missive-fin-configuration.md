@@ -128,6 +128,27 @@ Bridge 随后保持同一 Missive 会话历史，创建内部提醒、加共享�
 5. 在 Missive 与 Fin 分别配置生产 HTTPS webhook URL，并验证签名、回复、人工接管和客服回复。
 6. 生产启用前确认域名、Nginx TLS、PostgreSQL、日志目录和 systemd 服务均为生产实例；不要覆盖测试服务器。
 
+### 将当前测试 Bridge 直接升格为生产 Bridge
+
+若不新建生产服务器，而是将当前运行中的测试 Bridge 直接作为生产实例，可以继续使用既有的公网域名、Webhook URL 和签名密钥。此时 **无需** 在 Missive 或 Fin 修改以下回调地址：
+
+```text
+https://aiservices.letsgohibachi.com/webhooks/missive/inbound
+https://aiservices.letsgohibachi.com/webhooks/fin
+```
+
+这是因为外部系统仍然回调到同一个服务实例。该方式的前提是：服务器、域名、Nginx TLS、Bridge 数据库、`MISSIVE_WEBHOOK_SECRET`、`FIN_WEBHOOK_SECRET`、Missive Workspace 与 Fin 配置均保持不变。
+
+升格时仍应完成以下业务切换：
+
+1. 在原 Live Chat account 的 Sharing options 中，将默认 Team Inbox 改为新的“生产 AI 对话”Team。
+2. 创建新的“生产人工接管”Team，并将该 Team 的 ID 写入当前服务的 `MISSIVE_HANDOFF_TEAM_ID` 后重启服务。
+3. 生产网站使用原 Live Chat account 的 widget ID；若原生产网站已经使用该账号，则无需改 WordPress widget。
+4. 确认测试网站不再使用同一 Live Chat account 产生测试消息，避免测试会话混入生产客服队列。
+5. 确认现有服务的 PostgreSQL 中保留的是测试历史；它不妨碍新生产会话，但应按生产标准备份、监控和控制访问。
+
+如果之后更换服务器、域名或决定隔离密钥，则必须重新配置 Missive 和 Fin 的两类回调，并使用新的签名密钥。
+
 ## 运维位置
 
 测试服务器当前使用：
