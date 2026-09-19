@@ -43,7 +43,6 @@ public class WebhookEventProcessor {
     private final FinClient finClient;
     private final MissiveClient missiveClient;
     private final HandoffService handoffService;
-    private final HandoffLinkService handoffLinkService;
     private final FinReplyTurnGate finReplyTurnGate;
     private final FinReplyRenderer finReplyRenderer;
     private final ObjectMapper objectMapper;
@@ -57,7 +56,6 @@ public class WebhookEventProcessor {
                                  FinClient finClient,
                                  MissiveClient missiveClient,
                                  HandoffService handoffService,
-                                 HandoffLinkService handoffLinkService,
                                  FinReplyTurnGate finReplyTurnGate,
                                  FinReplyRenderer finReplyRenderer,
                                  ObjectMapper objectMapper) {
@@ -70,7 +68,6 @@ public class WebhookEventProcessor {
         this.finClient = finClient;
         this.missiveClient = missiveClient;
         this.handoffService = handoffService;
-        this.handoffLinkService = handoffLinkService;
         this.finReplyTurnGate = finReplyTurnGate;
         this.finReplyRenderer = finReplyRenderer;
         this.objectMapper = objectMapper;
@@ -315,7 +312,12 @@ public class WebhookEventProcessor {
         if (conversation.getState() != ConversationState.AI_HANDLING) { return; }
         LOGGER.info("Sending Fin reply to Missive immediately: finConversationId={}, missiveConversationId={}, bodyLength={}",
                 session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
-        missiveClient.sendFinReply(conversation, handoffLinkService.appendToFinReply(conversation, reply));
+        // Do not generate a per-reply handoff token or CTA here. The current
+        // Missive Live Chat widget can only render it as a browser link, which
+        // breaks the in-chat experience. Fin Guidance and hard-rule handoff
+        // remain active; a future first-party chat client will call the
+        // handoff flow with its own authenticated chat-session token instead.
+        missiveClient.sendFinReply(conversation, reply);
         recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
@@ -323,7 +325,7 @@ public class WebhookEventProcessor {
         if (conversation.getState() == ConversationState.AI_HANDLING && reply != null && !reply.trim().isEmpty()) {
             LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
                     session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
-            missiveClient.sendFinReply(conversation, handoffLinkService.appendToFinReply(conversation, reply));
+            missiveClient.sendFinReply(conversation, reply);
             recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
         }
         session.setReplyBuffer(null);
