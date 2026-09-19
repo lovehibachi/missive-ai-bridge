@@ -157,6 +157,28 @@ class WebhookEventProcessorTest {
         verify(finClient).reply(session, conversation, "Another question");
     }
 
+    @Test
+    void customerMessageAfterHumanHandoffNeverTriggersAnotherAiReplyOrLink() throws Exception {
+        ChatConversation conversation = conversation();
+        conversation.setState(com.lovehibachi.aichatbot.domain.ConversationState.HUMAN_NEEDED);
+        WebhookEvent customerMessage = new WebhookEvent();
+        customerMessage.setProvider("missive");
+        customerMessage.setExternalEventId("message-after-handoff");
+        customerMessage.setEventType("message_created");
+        customerMessage.setPayload("{}");
+        customerMessage.setStatus(EventStatus.RECEIVED);
+        MissiveInboundMessage.Snapshot snapshot = new MissiveInboundMessage.Snapshot(
+                "missive-1", "message-after-handoff", "visitor-1", "Are you there?", "[]", "account-1");
+        when(eventRepository.findById("after-handoff")).thenReturn(Optional.of(customerMessage));
+        when(inboundMessage.parse("{}")).thenReturn(snapshot);
+        when(conversationRepository.findByMissiveConversationId("missive-1")).thenReturn(Optional.of(conversation));
+        when(messageRepository.existsByExternalMessageId("message-after-handoff")).thenReturn(false);
+
+        processor().process("after-handoff");
+
+        verifyNoInteractions(finClient, missiveClient, handoffLinkService);
+    }
+
     private ChatConversation conversation() {
         ChatConversation conversation = new ChatConversation();
         conversation.setMissiveConversationId("missive-1");
