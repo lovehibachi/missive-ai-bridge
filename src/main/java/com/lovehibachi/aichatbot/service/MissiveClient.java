@@ -128,6 +128,12 @@ public class MissiveClient {
         post.put("organization", properties.getMissive().getOrganizationId());
         post.put("username", "Fin AI");
         post.put("markdown", "🤖 已恢复由 Fin AI 处理");
+        // Missive validates every Post as a notification, including an internal
+        // post used only to move a conversation between Team Inboxes.
+        Map<String, Object> notification = new LinkedHashMap<String, Object>();
+        notification.put("title", "已恢复 AI 处理");
+        notification.put("body", "后续客户消息将由 Fin AI 处理。");
+        post.put("notification", notification);
         post.put("remove_shared_labels", java.util.Collections.singletonList(properties.getMissive().getNeedHumanLabelId()));
         post.put("team", properties.getMissive().getAiTeamId());
         post.put("force_team", true);

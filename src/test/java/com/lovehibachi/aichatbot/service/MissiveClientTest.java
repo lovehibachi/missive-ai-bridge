@@ -61,6 +61,7 @@ class MissiveClientTest {
                 .andExpect(content().string(containsString("\"team\":\"ai-team-1\"")))
                 .andExpect(content().string(containsString("\"force_team\":true")))
                 .andExpect(content().string(containsString("\"remove_shared_labels\":[\"need-human-label-1\"]")))
+                .andExpect(content().string(containsString("\"notification\":{\"title\":\"已恢复 AI 处理\"")))
                 .andExpect(content().string(not(containsString("add_shared_labels"))))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
