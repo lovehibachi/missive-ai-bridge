@@ -10,6 +10,7 @@ public class BridgeProperties {
     private Fin fin = new Fin();
     private Rules rules = new Rules();
     private Promotions promotions = new Promotions();
+    private HandoffLinks handoffLinks = new HandoffLinks();
 
     public Missive getMissive() { return missive; }
     public void setMissive(Missive missive) { this.missive = missive; }
@@ -19,6 +20,8 @@ public class BridgeProperties {
     public void setRules(Rules rules) { this.rules = rules; }
     public Promotions getPromotions() { return promotions; }
     public void setPromotions(Promotions promotions) { this.promotions = promotions; }
+    public HandoffLinks getHandoffLinks() { return handoffLinks; }
+    public void setHandoffLinks(HandoffLinks handoffLinks) { this.handoffLinks = handoffLinks; }
 
     public static class Missive {
         private String apiBaseUrl = "https://public.missiveapp.com";
@@ -84,5 +87,15 @@ public class BridgeProperties {
         public void setLowPeakFollowUpMaxAgeSeconds(long value) { lowPeakFollowUpMaxAgeSeconds = value; }
         public String getLowPeakBookingUrl() { return lowPeakBookingUrl; }
         public void setLowPeakBookingUrl(String value) { lowPeakBookingUrl = value; }
+    }
+
+    public static class HandoffLinks {
+        private String publicBaseUrl = "https://aiservices.letsgohibachi.com";
+        private long ttlMinutes = 1440L;
+
+        public String getPublicBaseUrl() { return publicBaseUrl; }
+        public void setPublicBaseUrl(String value) { publicBaseUrl = value; }
+        public long getTtlMinutes() { return ttlMinutes; }
+        public void setTtlMinutes(long value) { ttlMinutes = value; }
     }
 }

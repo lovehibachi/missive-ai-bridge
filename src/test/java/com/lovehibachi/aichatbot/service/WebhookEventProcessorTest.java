@@ -40,6 +40,7 @@ class WebhookEventProcessorTest {
     @Mock private FinClient finClient;
     @Mock private MissiveClient missiveClient;
     @Mock private HandoffService handoffService;
+    @Mock private HandoffLinkService handoffLinkService;
     @Mock private FinReplyTurnGate finReplyTurnGate;
 
     @Test
@@ -171,8 +172,11 @@ class WebhookEventProcessorTest {
     }
 
     private WebhookEventProcessor processor() {
+        org.mockito.Mockito.lenient().when(handoffLinkService.appendToFinReply(
+                org.mockito.ArgumentMatchers.any(ChatConversation.class), anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
-                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate,
+                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, handoffLinkService, finReplyTurnGate,
                 new FinReplyRenderer(), new ObjectMapper());
     }
 

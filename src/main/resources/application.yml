@@ -38,6 +38,9 @@ bridge:
     # Do not send a stale promotion after a restart or an extended outage.
     low-peak-follow-up-max-age-seconds: ${LOW_PEAK_FOLLOW_UP_MAX_AGE_SECONDS:300}
     low-peak-booking-url: "${LOW_PEAK_BOOKING_URL:https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak}"
+  handoff-links:
+    public-base-url: ${BRIDGE_PUBLIC_BASE_URL:https://aiservices.letsgohibachi.com}
+    ttl-minutes: ${HANDOFF_LINK_TTL_MINUTES:1440}
 
 logging:
   level:
