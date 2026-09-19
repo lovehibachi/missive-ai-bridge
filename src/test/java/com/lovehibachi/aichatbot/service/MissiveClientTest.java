@@ -25,6 +25,8 @@ class MissiveClientTest {
         server.expect(requestTo("https://missive.example.test/v1/drafts"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().string(containsString("fin_low_peak")))
+                .andExpect(content().string(containsString("{{ link:https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak here }}")))
+                .andExpect(content().string(not(containsString("<a href="))))
                 .andExpect(content().string(not(containsString("Talk to a human"))))
                 .andExpect(content().string(not(containsString("/handoff/"))))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
