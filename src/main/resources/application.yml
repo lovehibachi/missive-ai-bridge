@@ -18,6 +18,12 @@ bridge:
     fin-ai-pat: ${MISSIVE_FIN_AI_PAT:}
     webhook-secret: ${MISSIVE_WEBHOOK_SECRET:}
     live-chat-account-id: ${MISSIVE_LIVE_CHAT_ACCOUNT_ID:}
+    custom-channel-account-id: ${MISSIVE_CUSTOM_CHANNEL_ACCOUNT_ID:}
+    custom-channel-webhook-secret: ${MISSIVE_CUSTOM_CHANNEL_WEBHOOK_SECRET:}
+    # The recipient identity shown by the Custom Channel setup in Missive.
+    custom-channel-recipient-id: ${MISSIVE_CUSTOM_CHANNEL_RECIPIENT_ID:}
+    custom-channel-recipient-username: ${MISSIVE_CUSTOM_CHANNEL_RECIPIENT_USERNAME:}
+    custom-channel-recipient-name: ${MISSIVE_CUSTOM_CHANNEL_RECIPIENT_NAME:Love Hibachi}
     organization-id: ${MISSIVE_ORGANIZATION_ID:}
     need-human-label-id: ${MISSIVE_NEED_HUMAN_LABEL_ID:}
     handoff-team-id: ${MISSIVE_HANDOFF_TEAM_ID:}
@@ -50,6 +56,10 @@ bridge:
   handoff-links:
     public-base-url: ${BRIDGE_PUBLIC_BASE_URL:https://aiservices.letsgohibachi.com}
     ttl-minutes: ${HANDOFF_LINK_TTL_MINUTES:1440}
+  web-chat:
+    # Exact WordPress origin allowed to call public chat endpoints. Never use '*'.
+    allowed-origin: ${WEB_CHAT_ALLOWED_ORIGIN:}
+    long-poll-timeout-millis: ${WEB_CHAT_LONG_POLL_TIMEOUT_MILLIS:25000}
   admin:
     token: ${BRIDGE_ADMIN_TOKEN:}
 

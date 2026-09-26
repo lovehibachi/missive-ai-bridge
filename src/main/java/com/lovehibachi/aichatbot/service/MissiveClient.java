@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.domain.ChatConversation;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -32,6 +35,59 @@ public class MissiveClient {
 
     public void sendFinReply(ChatConversation conversation, String htmlBody) {
         sendCustomerReply(conversation, htmlBody, "send_fin_reply");
+    }
+
+    /**
+     * Receives a visitor message for the Missive Custom Channel. The browser never
+     * calls Missive directly, so the workspace token remains server-side.
+     */
+    public CustomChannelMessageReceipt receiveCustomChannelMessage(String sessionToken, String body,
+                                                                    String clientMessageId,
+                                                                    String existingConversationId) {
+        requireCustomChannelConfiguration();
+        Map<String, Object> message = new LinkedHashMap<String, Object>();
+        message.put("account", properties.getMissive().getCustomChannelAccountId());
+        message.put("body", body);
+        message.put("external_id", clientMessageId);
+        Map<String, Object> from = new LinkedHashMap<String, Object>();
+        from.put("id", sessionToken);
+        from.put("username", "visitor-" + shortToken(sessionToken));
+        from.put("name", "Website visitor");
+        message.put("from_field", from);
+        Map<String, Object> recipient = new LinkedHashMap<String, Object>();
+        recipient.put("id", properties.getMissive().getCustomChannelRecipientId());
+        recipient.put("username", properties.getMissive().getCustomChannelRecipientUsername());
+        recipient.put("name", properties.getMissive().getCustomChannelRecipientName());
+        List<Map<String, Object>> recipients = new ArrayList<Map<String, Object>>();
+        recipients.add(recipient);
+        message.put("to_fields", recipients);
+        if (!isBlank(existingConversationId)) { message.put("conversation", existingConversationId); }
+        if (!isBlank(properties.getMissive().getAiTeamId())) {
+            message.put("team", properties.getMissive().getAiTeamId());
+        }
+        Map<String, Object> request = new LinkedHashMap<String, Object>();
+        request.put("messages", Collections.singletonList(message));
+        String response = postForBody("receive_custom_channel_message", "/v1/messages", request,
+                existingConversationId == null ? "new" : existingConversationId);
+        try {
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode returned = root.path("messages").isArray() && root.path("messages").size() > 0
+                    ? root.path("messages").get(0) : root.path("message");
+            String messageId = text(returned.path("id"));
+            String conversationId = text(returned.path("conversation").path("id"));
+            if (isBlank(conversationId)) { conversationId = text(root.path("conversation").path("id")); }
+            if (isBlank(messageId) || isBlank(conversationId)) {
+                throw new IllegalStateException("Missive Custom Channel response omitted message or conversation id");
+            }
+            return new CustomChannelMessageReceipt(messageId, conversationId);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to read Missive Custom Channel response", exception);
+        }
+    }
+
+    public boolean usesCustomChannel(ChatConversation conversation) {
+        return conversation != null && !isBlank(properties.getMissive().getCustomChannelAccountId())
+                && properties.getMissive().getCustomChannelAccountId().equals(conversation.getLiveChatAccountId());
     }
 
     /**
@@ -144,6 +200,10 @@ public class MissiveClient {
     }
 
     private void post(String operation, String path, Map<String, Object> body, String missiveConversationId) {
+        postForBody(operation, path, body, missiveConversationId);
+    }
+
+    private String postForBody(String operation, String path, Map<String, Object> body, String missiveConversationId) {
         if (isBlank(properties.getMissive().getFinAiPat())) { throw new IllegalStateException("Missing MISSIVE_FIN_AI_PAT"); }
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(properties.getMissive().getFinAiPat());
@@ -156,6 +216,7 @@ public class MissiveClient {
                     new HttpEntity<Map<String, Object>>(body, headers), String.class);
             LOGGER.info("Missive API call succeeded: operation={}, path={}, missiveConversationId={}, httpStatus={}, durationMs={}",
                     operation, path, missiveConversationId, response.getStatusCodeValue(), elapsedMillis(startedAt));
+            return response.getBody() == null ? "{}" : response.getBody();
         } catch (RestClientResponseException exception) {
             LOGGER.warn("Missive API call failed: operation={}, path={}, missiveConversationId={}, httpStatus={}, durationMs={}, errorType={}",
                     operation, path, missiveConversationId, exception.getRawStatusCode(), elapsedMillis(startedAt),
@@ -169,5 +230,26 @@ public class MissiveClient {
     }
     private long elapsedMillis(long startedAt) { return (System.nanoTime() - startedAt) / 1000000L; }
     private String safeReason(String reason) { return reason == null || reason.trim().isEmpty() ? "需要人工处理" : reason; }
+    private String shortToken(String value) { return value == null ? "anonymous" : value.substring(0, Math.min(12, value.length())); }
+    private String text(JsonNode value) { return value == null || value.isMissingNode() || value.isNull() ? null : value.asText(); }
+    private void requireCustomChannelConfiguration() {
+        if (isBlank(properties.getMissive().getCustomChannelAccountId())) {
+            throw new IllegalStateException("Missing MISSIVE_CUSTOM_CHANNEL_ACCOUNT_ID");
+        }
+        if (isBlank(properties.getMissive().getCustomChannelRecipientId())) {
+            throw new IllegalStateException("Missing MISSIVE_CUSTOM_CHANNEL_RECIPIENT_ID");
+        }
+    }
     private boolean isBlank(String value) { return value == null || value.trim().isEmpty(); }
+
+    public static class CustomChannelMessageReceipt {
+        private final String messageId;
+        private final String conversationId;
+        CustomChannelMessageReceipt(String messageId, String conversationId) {
+            this.messageId = messageId;
+            this.conversationId = conversationId;
+        }
+        public String getMessageId() { return messageId; }
+        public String getConversationId() { return conversationId; }
+    }
 }

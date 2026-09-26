@@ -40,6 +40,10 @@ public class ChatConversation {
     @Column(name = "last_missive_message_id", length = 128)
     private String lastMissiveMessageId;
 
+    /** Opaque browser token used only by a Custom Channel conversation. */
+    @Column(name = "web_chat_session_token", length = 128, unique = true)
+    private String webChatSessionToken;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -71,4 +75,6 @@ public class ChatConversation {
     public void setEscalationReason(String value) { this.escalationReason = value; }
     public String getLastMissiveMessageId() { return lastMissiveMessageId; }
     public void setLastMissiveMessageId(String value) { this.lastMissiveMessageId = value; }
+    public String getWebChatSessionToken() { return webChatSessionToken; }
+    public void setWebChatSessionToken(String value) { this.webChatSessionToken = value; }
 }

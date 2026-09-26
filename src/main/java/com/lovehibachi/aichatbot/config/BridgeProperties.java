@@ -11,6 +11,7 @@ public class BridgeProperties {
     private Rules rules = new Rules();
     private Promotions promotions = new Promotions();
     private HandoffLinks handoffLinks = new HandoffLinks();
+    private WebChat webChat = new WebChat();
     private Admin admin = new Admin();
 
     public Missive getMissive() { return missive; }
@@ -23,6 +24,8 @@ public class BridgeProperties {
     public void setPromotions(Promotions promotions) { this.promotions = promotions; }
     public HandoffLinks getHandoffLinks() { return handoffLinks; }
     public void setHandoffLinks(HandoffLinks handoffLinks) { this.handoffLinks = handoffLinks; }
+    public WebChat getWebChat() { return webChat; }
+    public void setWebChat(WebChat webChat) { this.webChat = webChat; }
     public Admin getAdmin() { return admin; }
     public void setAdmin(Admin admin) { this.admin = admin; }
 
@@ -31,6 +34,12 @@ public class BridgeProperties {
         private String finAiPat;
         private String webhookSecret;
         private String liveChatAccountId;
+        private String customChannelAccountId;
+        private String customChannelWebhookSecret;
+        /** Recipient identity configured on the Missive Custom Channel account. */
+        private String customChannelRecipientId;
+        private String customChannelRecipientUsername;
+        private String customChannelRecipientName = "Love Hibachi";
         private String organizationId;
         private String needHumanLabelId;
         private String handoffTeamId;
@@ -43,6 +52,16 @@ public class BridgeProperties {
         public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
         public String getLiveChatAccountId() { return liveChatAccountId; }
         public void setLiveChatAccountId(String liveChatAccountId) { this.liveChatAccountId = liveChatAccountId; }
+        public String getCustomChannelAccountId() { return customChannelAccountId; }
+        public void setCustomChannelAccountId(String value) { this.customChannelAccountId = value; }
+        public String getCustomChannelWebhookSecret() { return customChannelWebhookSecret; }
+        public void setCustomChannelWebhookSecret(String value) { this.customChannelWebhookSecret = value; }
+        public String getCustomChannelRecipientId() { return customChannelRecipientId; }
+        public void setCustomChannelRecipientId(String value) { this.customChannelRecipientId = value; }
+        public String getCustomChannelRecipientUsername() { return customChannelRecipientUsername; }
+        public void setCustomChannelRecipientUsername(String value) { this.customChannelRecipientUsername = value; }
+        public String getCustomChannelRecipientName() { return customChannelRecipientName; }
+        public void setCustomChannelRecipientName(String value) { this.customChannelRecipientName = value; }
         public String getOrganizationId() { return organizationId; }
         public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
         public String getNeedHumanLabelId() { return needHumanLabelId; }
@@ -122,6 +141,16 @@ public class BridgeProperties {
     }
 
     /** Credentials for deliberate operator actions; never expose this token to visitors. */
+    /** Public browser-facing settings. No Fin or Missive credential belongs here. */
+    public static class WebChat {
+        private String allowedOrigin = "";
+        private long longPollTimeoutMillis = 25000L;
+        public String getAllowedOrigin() { return allowedOrigin; }
+        public void setAllowedOrigin(String value) { allowedOrigin = value; }
+        public long getLongPollTimeoutMillis() { return longPollTimeoutMillis; }
+        public void setLongPollTimeoutMillis(long value) { longPollTimeoutMillis = value; }
+    }
+
     public static class Admin {
         private String token;
         public String getToken() { return token; }

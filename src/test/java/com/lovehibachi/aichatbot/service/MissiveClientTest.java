@@ -2,6 +2,7 @@ package com.lovehibachi.aichatbot.service;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -70,6 +71,27 @@ class MissiveClientTest {
         server.verify();
     }
 
+    @Test
+    void receivesCustomChannelVisitorMessageWithoutExposingThePat() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        server.expect(requestTo("https://missive.example.test/v1/messages"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("\"account\":\"custom-account-1\"")))
+                .andExpect(content().string(containsString("\"external_id\":\"client-1\"")))
+                .andExpect(content().string(containsString("\"conversation\":\"existing-conversation-1\"")))
+                .andExpect(content().string(not(containsString("test-token"))))
+                .andRespond(withSuccess("{\"messages\":[{\"id\":\"message-1\",\"conversation\":{\"id\":\"conversation-1\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        MissiveClient.CustomChannelMessageReceipt receipt = client(restTemplate).receiveCustomChannelMessage(
+                "12345678901234567890123456789012", "Hello", "client-1", "existing-conversation-1");
+
+        assertEquals("message-1", receipt.getMessageId());
+        assertEquals("conversation-1", receipt.getConversationId());
+        server.verify();
+    }
+
     private MissiveClient client(RestTemplate restTemplate) {
         BridgeProperties properties = new BridgeProperties();
         properties.getMissive().setApiBaseUrl("https://missive.example.test");
@@ -77,6 +99,9 @@ class MissiveClientTest {
         properties.getMissive().setOrganizationId("organization-1");
         properties.getMissive().setNeedHumanLabelId("need-human-label-1");
         properties.getMissive().setAiTeamId("ai-team-1");
+        properties.getMissive().setCustomChannelAccountId("custom-account-1");
+        properties.getMissive().setCustomChannelRecipientId("custom-recipient-1");
+        properties.getMissive().setCustomChannelRecipientUsername("lovehibachi");
         properties.getPromotions().setLowPeakBookingUrl(
                 "https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak");
         return new MissiveClient(restTemplate, new ObjectMapper(), properties);

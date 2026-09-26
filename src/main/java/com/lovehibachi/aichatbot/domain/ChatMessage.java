@@ -48,4 +48,5 @@ public class ChatMessage {
     public String getBody() { return body; }
     public void setBody(String value) { this.body = value; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getId() { return id; }
 }

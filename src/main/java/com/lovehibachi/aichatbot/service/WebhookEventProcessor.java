@@ -340,7 +340,11 @@ public class WebhookEventProcessor {
         // remain active; a future first-party chat client will call the
         // handoff flow with its own authenticated chat-session token instead.
         missiveClient.sendFinReply(conversation, reply);
-        recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
+        // The Custom Channel callback is the source of truth for browser delivery
+        // and persistence. Recording here as well would show every Fin message twice.
+        if (!missiveClient.usesCustomChannel(conversation)) {
+            recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
+        }
     }
     private void flushReply(FinSession session, ChatConversation conversation) {
         String reply = finReplyRenderer.render(session.getReplyBuffer());
@@ -348,7 +352,9 @@ public class WebhookEventProcessor {
             LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
                     session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
             missiveClient.sendFinReply(conversation, reply);
-            recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
+            if (!missiveClient.usesCustomChannel(conversation)) {
+                recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
+            }
         }
         session.setReplyBuffer(null);
         session.setReplyReceivedAt(null);

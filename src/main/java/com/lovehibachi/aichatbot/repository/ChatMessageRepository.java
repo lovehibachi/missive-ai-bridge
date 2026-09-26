@@ -9,4 +9,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, String
 
     List<ChatMessage> findTop10ByConversation_IdAndExternalMessageIdNotOrderByCreatedAtDesc(
             String conversationId, String excludedExternalMessageId);
+
+    List<ChatMessage> findTop200ByConversation_IdOrderByCreatedAtAsc(String conversationId);
 }

@@ -1,0 +1,92 @@
+package com.lovehibachi.aichatbot.web;
+
+import com.lovehibachi.aichatbot.config.BridgeProperties;
+import com.lovehibachi.aichatbot.service.WebChatNotifier;
+import com.lovehibachi.aichatbot.service.WebChatService;
+import java.util.List;
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.server.ResponseStatusException;
+
+/** Public API used only by the first-party browser chat. Credentials never cross this boundary. */
+@RestController
+@RequestMapping("/api/chat")
+@Validated
+public class WebChatController {
+    private final WebChatService webChatService;
+    private final WebChatNotifier notifier;
+    private final BridgeProperties properties;
+
+    public WebChatController(WebChatService webChatService, WebChatNotifier notifier, BridgeProperties properties) {
+        this.webChatService = webChatService;
+        this.notifier = notifier;
+        this.properties = properties;
+    }
+
+    @GetMapping("/messages")
+    public ChatResponse messages(@RequestParam("session") String session,
+                                 @RequestParam(value = "after", required = false) String after) {
+        return new ChatResponse(webChatService.messages(session, after));
+    }
+
+    /**
+     * One browser request waits for a new message for at most 25 seconds. This
+     * avoids a permanent connection while delivering human replies promptly.
+     */
+    @GetMapping("/events")
+    public DeferredResult<ChatResponse> events(@RequestParam("session") String session,
+                                                @RequestParam(value = "after", required = false) String after) {
+        List<WebChatService.WebChatMessage> immediate = webChatService.messages(session, after);
+        if (!immediate.isEmpty()) {
+            DeferredResult<ChatResponse> result = new DeferredResult<ChatResponse>();
+            result.setResult(new ChatResponse(immediate));
+            return result;
+        }
+        final DeferredResult<ChatResponse> response = new DeferredResult<ChatResponse>(
+                properties.getWebChat().getLongPollTimeoutMillis(), new ChatResponse(java.util.Collections.emptyList()));
+        notifier.waitForMessage(session, response,
+                () -> response.setResult(new ChatResponse(webChatService.messages(session, after))));
+        return response;
+    }
+
+    @PostMapping("/messages")
+    public ResponseEntity<Void> send(@RequestHeader(value = "X-Chat-Session", required = false) String session,
+                                     @Valid @RequestBody SendMessage request) {
+        if (session == null) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing chat session"); }
+        webChatService.receiveVisitorMessage(session, request.getClientMessageId(), request.getBody());
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/handoff")
+    public ResponseEntity<Void> handoff(@RequestHeader(value = "X-Chat-Session", required = false) String session) {
+        if (session == null) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing chat session"); }
+        webChatService.requestHuman(session);
+        return ResponseEntity.accepted().build();
+    }
+
+    public static class SendMessage {
+        @NotBlank
+        private String body;
+        private String clientMessageId;
+        public String getBody() { return body; }
+        public void setBody(String body) { this.body = body; }
+        public String getClientMessageId() { return clientMessageId; }
+        public void setClientMessageId(String clientMessageId) { this.clientMessageId = clientMessageId; }
+    }
+    public static class ChatResponse {
+        private final List<WebChatService.WebChatMessage> messages;
+        ChatResponse(List<WebChatService.WebChatMessage> messages) { this.messages = messages; }
+        public List<WebChatService.WebChatMessage> getMessages() { return messages; }
+    }
+}

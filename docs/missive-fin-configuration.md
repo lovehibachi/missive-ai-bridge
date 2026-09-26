@@ -115,6 +115,54 @@ Fin Webhook URL 为 `/webhooks/fin`；Missive 入站 Webhook URL 为 `/webhooks/
 
 WordPress 不保存 Fin key、Missive PAT、webhook secret、人工 Team ID，也不执行转人工逻辑。生产部署若使用不同 Live Chat account，需同时修改 WordPress widget ID 和生产 Bridge 的 `MISSIVE_LIVE_CHAT_ACCOUNT_ID`。
 
+## 自建 ChatScope 前端（Missive Custom Channel）
+
+自建前端不会替换 Fin 或人工接管逻辑；它只把原本由 Missive Live Chat widget 完成的客户界面改为网站自己的界面。上线前，旧 widget 和新界面可并存，但 **同一环境只能启用一个客户入口**，以免客户开出两种不同会话。
+
+```text
+ChatScope 浏览器界面
+  → POST /api/chat/messages（随机 chat session token）
+  → Bridge 代表客户 POST /v1/messages
+  → Missive Custom Channel 会话 / AI Team
+  → Fin 或客服在原 Missive 会话回复
+  → Missive Custom Channel 出站 webhook
+  → Bridge /webhooks/missive/custom-channel
+  → 浏览器 25 秒长轮询立即返回新消息
+```
+
+### Missive 中需新增的内容
+
+1. **Settings → Accounts → Add account → Custom**，新建一个 Custom Channel；请选择能保留富文本的 **HTML** 类型（类型创建后不可改）。这不是新的 Fin workspace，也不会改变现有 Fin API app。
+2. 在该 Custom Channel 的出站 webhook URL 填：
+   `https://aiservices.letsgohibachi.com/webhooks/missive/custom-channel`
+   并把 Custom Channel 页面生成的 webhook signing secret 保存为 `MISSIVE_CUSTOM_CHANNEL_WEBHOOK_SECRET`。
+3. 记录 Custom Channel 的 account ID（`MISSIVE_CUSTOM_CHANNEL_ACCOUNT_ID`）和它在 Missive 中显示的 recipient identity（`MISSIVE_CUSTOM_CHANNEL_RECIPIENT_ID`；若有 username，同样填 `MISSIVE_CUSTOM_CHANNEL_RECIPIENT_USERNAME`）。它们可从 Settings → API → Resource IDs 或 Custom Channel setup 页面取得。
+4. 在该账号的 Sharing options 中把新会话初始路由到 AI Team。人工接管仍由 Bridge 通过 `MISSIVE_HANDOFF_TEAM_ID` 将**同一会话**移动到人工 Team，客服会在 Missive 正常回复；回复会自动被转给网页。
+
+Bridge 另需设置：
+
+```ini
+MISSIVE_CUSTOM_CHANNEL_ACCOUNT_ID=...
+MISSIVE_CUSTOM_CHANNEL_WEBHOOK_SECRET=...
+MISSIVE_CUSTOM_CHANNEL_RECIPIENT_ID=...
+MISSIVE_CUSTOM_CHANNEL_RECIPIENT_USERNAME=...
+WEB_CHAT_ALLOWED_ORIGIN=https://lovehibachi.com
+WEB_CHAT_LONG_POLL_TIMEOUT_MILLIS=25000
+```
+
+WordPress 仅在目标环境的 `wp-config.php` 中同时设置下列开关时才加载新插件；默认关闭，故提交和部署代码本身不会影响现有 widget：
+
+```php
+define('LH_CUSTOM_CHAT_ENABLED', true);
+define('LH_CUSTOM_CHAT_API_BASE_URL', 'https://aiservices.letsgohibachi.com');
+```
+
+启用该开关时，Tracking Manager 会仅抑制旧 Missive widget 的加载；它不会改动后台保存的 widget ID 或 Missive 账号配置。删掉/设为 `false` 即可回退为旧 widget。
+
+ChatScope 对消息正文同时支持受控 HTML 和 Markdown：Bridge 对所有下行 HTML 执行 allowlist 清理，仅允许格式化标签和 HTTPS 链接；浏览器不会直接渲染未经服务端清理的 HTML。浏览器 token 是随机不透明值，不包含 Missive 或 Fin conversation ID，也不包含任何密钥。
+
+新界面的 `Talk to a human` 按钮会用该随机 token 调用 `POST /api/chat/handoff`；Bridge 找回内部会话并复用现有 `HandoffService`，所以客户与 AI 的完整历史仍留在同一 Missive 会话中。
+
 ## 目前的人工接管与未来自建前端
 
 当前可触发人工接管的方式：
