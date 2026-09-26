@@ -2,6 +2,7 @@ package com.lovehibachi.aichatbot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.domain.ChatConversation;
 import com.lovehibachi.aichatbot.domain.ChatMessage;
 import com.lovehibachi.aichatbot.domain.ConversationState;
@@ -46,6 +47,7 @@ public class WebhookEventProcessor {
     private final FinReplyTurnGate finReplyTurnGate;
     private final FinReplyRenderer finReplyRenderer;
     private final ObjectMapper objectMapper;
+    private final BridgeProperties properties;
 
     public WebhookEventProcessor(WebhookEventRepository eventRepository,
                                  ChatConversationRepository conversationRepository,
@@ -58,7 +60,8 @@ public class WebhookEventProcessor {
                                  HandoffService handoffService,
                                  FinReplyTurnGate finReplyTurnGate,
                                  FinReplyRenderer finReplyRenderer,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 BridgeProperties properties) {
         this.eventRepository = eventRepository;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
@@ -71,6 +74,7 @@ public class WebhookEventProcessor {
         this.finReplyTurnGate = finReplyTurnGate;
         this.finReplyRenderer = finReplyRenderer;
         this.objectMapper = objectMapper;
+        this.properties = properties;
     }
 
     @Async("bridgeExecutor")
@@ -163,7 +167,7 @@ public class WebhookEventProcessor {
             FinSession newSession = new FinSession();
             newSession.setConversation(conversation);
             newSession.setCycleNumber(active == null ? 1 : active.getCycleNumber() + 1);
-            newSession.setFinConversationId("fin:missive:" + conversation.getMissiveConversationId() + ":cycle:" + UUID.randomUUID().toString());
+            newSession.setFinConversationId(finConversationId(conversation.getMissiveConversationId()));
             newSession.setStatus("thinking");
             sessionRepository.save(newSession);
             finReplyTurnGate.reset(newSession.getFinConversationId());
@@ -186,6 +190,14 @@ public class WebhookEventProcessor {
             return;
         }
         throw new DeferredMessageException("Fin is still " + active.getStatus() + " for this conversation");
+    }
+
+    private String finConversationId(String missiveConversationId) {
+        String prefix = properties.getFin().getConversationIdPrefix();
+        if (prefix == null || prefix.trim().isEmpty()) {
+            throw new IllegalStateException("Missing FIN_CONVERSATION_ID_PREFIX");
+        }
+        return prefix + ":" + missiveConversationId + ":cycle:" + UUID.randomUUID().toString();
     }
 
     private void processFin(WebhookEvent event) throws Exception {

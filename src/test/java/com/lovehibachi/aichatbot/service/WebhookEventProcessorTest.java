@@ -3,6 +3,7 @@ package com.lovehibachi.aichatbot.service;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.domain.ChatConversation;
 import com.lovehibachi.aichatbot.domain.EventStatus;
 import com.lovehibachi.aichatbot.domain.FinSession;
@@ -25,6 +27,7 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -179,6 +182,33 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void startsNewFinSessionsWithTheConfiguredEnvironmentPrefix() throws Exception {
+        ChatConversation conversation = new ChatConversation();
+        WebhookEvent customerMessage = new WebhookEvent();
+        customerMessage.setProvider("missive");
+        customerMessage.setExternalEventId("message-new-session");
+        customerMessage.setEventType("message_created");
+        customerMessage.setPayload("{}");
+        customerMessage.setStatus(EventStatus.RECEIVED);
+        MissiveInboundMessage.Snapshot snapshot = new MissiveInboundMessage.Snapshot(
+                "missive-test-1", "message-new-session", "visitor-1", "Hello", "[]", "account-1");
+        when(eventRepository.findById("new-session")).thenReturn(Optional.of(customerMessage));
+        when(inboundMessage.parse("{}")).thenReturn(snapshot);
+        when(conversationRepository.findByMissiveConversationId("missive-test-1")).thenReturn(Optional.of(conversation));
+        when(sessionRepository.findByConversation_IdOrderByCycleNumberDesc(isNull())).thenReturn(Collections.emptyList());
+        when(hardRuleEngine.matchingRule("Hello")).thenReturn(null);
+        when(messageRepository.existsByExternalMessageId("message-new-session")).thenReturn(false);
+        BridgeProperties properties = new BridgeProperties();
+        properties.getFin().setConversationIdPrefix("fin:test:missive");
+
+        processor(properties).process("new-session");
+
+        ArgumentCaptor<FinSession> captured = ArgumentCaptor.forClass(FinSession.class);
+        verify(sessionRepository).save(captured.capture());
+        assertTrue(captured.getValue().getFinConversationId().startsWith("fin:test:missive:missive-test-1:cycle:"));
+    }
+
+    @Test
     void ignoresLateFinReplyFromSupersededSessionAfterAiResume() {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);
@@ -208,9 +238,13 @@ class WebhookEventProcessorTest {
     }
 
     private WebhookEventProcessor processor() {
+        return processor(new BridgeProperties());
+    }
+
+    private WebhookEventProcessor processor(BridgeProperties properties) {
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
                 inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate,
-                new FinReplyRenderer(), new ObjectMapper());
+                new FinReplyRenderer(), new ObjectMapper(), properties);
     }
 
     private WebhookEvent finReply(String status, String body) {

@@ -59,6 +59,8 @@ public class BridgeProperties {
         private String webhookSecret;
         private String clientSecret;
         private String apiVersion = "2.16";
+        private String conversationIdPrefix = "fin:missive";
+        private WebhookRelay webhookRelay = new WebhookRelay();
         public String getApiBaseUrl() { return apiBaseUrl; }
         public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
         public String getApiKey() { return apiKey; }
@@ -69,6 +71,20 @@ public class BridgeProperties {
         public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
         public String getApiVersion() { return apiVersion; }
         public void setApiVersion(String apiVersion) { this.apiVersion = apiVersion; }
+        public String getConversationIdPrefix() { return conversationIdPrefix; }
+        public void setConversationIdPrefix(String value) { conversationIdPrefix = value; }
+        public WebhookRelay getWebhookRelay() { return webhookRelay; }
+        public void setWebhookRelay(WebhookRelay value) { webhookRelay = value; }
+
+        /** Optional local forwarding target for Fin callbacks belonging to another bridge instance. */
+        public static class WebhookRelay {
+            private String conversationIdPrefix;
+            private String targetUrl;
+            public String getConversationIdPrefix() { return conversationIdPrefix; }
+            public void setConversationIdPrefix(String value) { conversationIdPrefix = value; }
+            public String getTargetUrl() { return targetUrl; }
+            public void setTargetUrl(String value) { targetUrl = value; }
+        }
     }
 
     public static class Rules {

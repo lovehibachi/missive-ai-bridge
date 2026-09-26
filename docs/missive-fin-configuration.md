@@ -100,6 +100,9 @@ Fin 不知道 Missive Workspace，也不直接配置 Missive Team。
 | `FIN_API_KEY` | Bridge 调用 `/fin/start`、`/fin/reply` 的 Fin Agent API key。 | Intercom/Fin 的 Fin Agent API app 设置。 |
 | `FIN_WEBHOOK_SECRET` | 验证 Fin → Bridge webhook。 | Fin Agent API app 的 Webhook Events 设置。 |
 | `INTERCOM_CLIENT_SECRET` | 用于 Intercom/Fin webhook 验签的 app client secret。 | Intercom Developer Hub 的 app Authentication/Client Secret。 |
+| `FIN_CONVERSATION_ID_PREFIX` | Bridge 创建 Fin 外部 `conversation_id` 的命名空间。生产为 `fin:missive`；测试为 `fin:test:missive`。 | 服务器环境文件，不是 Fin 后台设置。 |
+| `FIN_WEBHOOK_RELAY_CONVERSATION_ID_PREFIX` | 唯一 Fin callback 接收端要转发的会话前缀。生产 callback 接收端设为 `fin:test:`。 | 服务器环境文件；测试 Bridge 留空。 |
+| `FIN_WEBHOOK_RELAY_TARGET_URL` | 上述测试前缀的本机转发目标，例如 `http://127.0.0.1:8081/webhooks/fin`。 | 服务器环境文件；测试 Bridge 留空。 |
 | `BRIDGE_PUBLIC_BASE_URL` | Bridge 对外 HTTPS 基址。当前主要用于保留的旧 handoff URL；未来自建前端也会使用 API 基址。 | 部署域名，例如 `https://aiservices.letsgohibachi.com`。 |
 
 Fin Webhook URL 为 `/webhooks/fin`；Missive 入站 Webhook URL 为 `/webhooks/missive/inbound`。两者必须使用 HTTPS，并分别使用独立签名密钥。
@@ -167,14 +170,81 @@ https://aiservices.letsgohibachi.com/webhooks/fin
 
 如果之后更换服务器、域名或决定隔离密钥，则必须重新配置 Missive 和 Fin 的两类回调，并使用新的签名密钥。
 
-## 运维位置
+## 部署位置与环境隔离
 
-测试服务器当前使用：
+当前运行中的服务器实例已作为**生产环境**使用。其部署位置为：
 
-- JAR：`/opt/fin-missive-bridge/fin-missive-bridge.jar`
-- 环境文件：`/etc/fin-missive-bridge/bridge.env`
-- systemd：`fin-missive-bridge`
-- 日志：`/opt/fin-missive-bridge/log/application.log`
-- PostgreSQL：`fin_missive_bridge`
+| 内容 | 生产环境 |
+| --- | --- |
+| JAR | `/opt/fin-missive-bridge/fin-missive-bridge.jar` |
+| 环境文件 | `/etc/fin-missive-bridge/bridge.env` |
+| systemd 服务 | `fin-missive-bridge` |
+| 工作目录 | `/var/lib/fin-missive-bridge` |
+| 日志 | `/opt/fin-missive-bridge/log/application.log` |
+| PostgreSQL 数据库 | `fin_missive_bridge` |
 
-这些路径是部署约定，不是可提交凭据的位置。
+同一台服务器上的独立测试环境已部署，使用下列**并列且不共享**的位置：
+
+| 内容 | 测试环境 |
+| --- | --- |
+| JAR | `/opt/fin-missive-bridge-test/fin-missive-bridge-test.jar` |
+| 环境文件 | `/etc/fin-missive-bridge-test/bridge.env` |
+| systemd 服务 | `fin-missive-bridge-test` |
+| 工作目录 | `/var/lib/fin-missive-bridge-test` |
+| 日志 | `/opt/fin-missive-bridge-test/log/application.log` |
+| PostgreSQL 数据库 | `fin_missive_bridge_test` |
+| 本地 HTTP 端口 | 与生产 `8080` 分离，例如 `8081` |
+
+测试与生产还必须使用独立的 Missive Live Chat account、AI Team、handoff Team、Webhook secret；如果两套服务要独立接收 Fin 回调，推荐使用独立的 Fin Agent API app、API key 和 callback URL。
+
+测试实例的公网路由已配置为：
+
+| 用途 | 测试环境 URL |
+| --- | --- |
+| 健康检查 | `https://aiservices.letsgohibachi.com/test/health` |
+| Missive 入站回调 | `https://aiservices.letsgohibachi.com/webhooks/test/missive/inbound` |
+| Fin 回调 | `https://aiservices.letsgohibachi.com/webhooks/test/fin` |
+| 测试用客户确认页 | `https://aiservices.letsgohibachi.com/test/handoff/...` |
+
+测试服务 `fin-missive-bridge-test` 当前已配置测试侧的 Fin API key，并根据当前决定**复用生产 `MISSIVE_FIN_AI_PAT`**。该 token 可以访问同一 Missive Organization，故测试服务必须仅操作测试账号和测试 Team。它同时**共享生产 Fin App 的 `FIN_WEBHOOK_SECRET`**，使其可以校验该 App 签发的 Fin 回调；该共享并不会让 Fin 事件自动抵达测试服务。
+
+测试与生产当前位于同一个 Missive Organization，因此测试 Bridge 的 `MISSIVE_ORGANIZATION_ID` 使用生产同一值；Live Chat account、AI Team 和 handoff Team 仍使用各自独立的测试 ID。
+
+测试 Bridge 也复用生产的 `MISSIVE_NEED_HUMAN_LABEL_ID`；测试 Missive Rule 的 validation secret 则必须独立生成，并同时保存为测试环境的 `MISSIVE_WEBHOOK_SECRET`。
+
+测试 App 的 `INTERCOM_CLIENT_SECRET` 已配置在测试环境，用于验证 Intercom 页面发出的 `X-Hub-Signature` 测试请求；该值与 Fin 的正式 `X-Fin-Agent-API-Webhook-Signature` 所使用的 `FIN_WEBHOOK_SECRET` 是两个不同的签名密钥。
+
+同一个 Fin App 只能配置一个 callback URL。当前 Bridge 用 `conversation_id` 前缀在这个唯一 callback 后分流，因此无需购买第二个 Fin workspace：
+
+```text
+测试 Bridge 创建 fin:test:missive:... 会话
+  → 同一个 Fin App
+  → Fin 仍回调生产 /webhooks/fin
+  → 生产 Bridge 验证 Fin 原始签名
+  → 仅 fin:test: 前缀转发至 http://127.0.0.1:8081/webhooks/fin
+  → 测试 Bridge 再次验证同一签名并写回测试 Missive 会话
+
+其他前缀（包括既有 fin:missive:...）继续由生产 Bridge 处理。
+```
+
+生产 callback 接收端需设置：
+
+```text
+FIN_CONVERSATION_ID_PREFIX=fin:missive
+FIN_WEBHOOK_RELAY_CONVERSATION_ID_PREFIX=fin:test:
+FIN_WEBHOOK_RELAY_TARGET_URL=http://127.0.0.1:8081/webhooks/fin
+```
+
+测试 Bridge 需设置：
+
+```text
+FIN_CONVERSATION_ID_PREFIX=fin:test:missive
+```
+
+其余 relay 变量必须留空。两端必须使用同一 Fin App 的 `FIN_WEBHOOK_SECRET`，以便测试端验证被原样转发的签名。已有的测试 Fin session 仍使用旧的 `fin:missive:` ID；启用前缀后应重置这些 session 或新建测试会话。
+
+源码工作区不部署到服务器。当前本地源码为
+`/Users/kelvin.dong/lhbc/code/unified_website/fin-missive-bridge`；Git 仓库为
+`git@github.com-lhbc:lovehibachi/missive-ai-bridge.git`。
+
+上述环境文件仅保存服务器本地配置，禁止提交任何真实凭据。

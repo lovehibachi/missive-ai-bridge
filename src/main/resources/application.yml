@@ -28,6 +28,14 @@ bridge:
     webhook-secret: ${FIN_WEBHOOK_SECRET:}
     client-secret: ${INTERCOM_CLIENT_SECRET:}
     api-version: ${FIN_API_VERSION:2.16}
+    # Prefix is part of our external Fin conversation_id. Test uses fin:test:missive,
+    # so the one Fin callback can safely distinguish it from production traffic.
+    conversation-id-prefix: ${FIN_CONVERSATION_ID_PREFIX:fin:missive}
+    webhook-relay:
+      # Only set these on the callback-owning production instance. The payload is
+      # signature-verified first, then forwarded unchanged to the local test bridge.
+      conversation-id-prefix: ${FIN_WEBHOOK_RELAY_CONVERSATION_ID_PREFIX:}
+      target-url: ${FIN_WEBHOOK_RELAY_TARGET_URL:}
   rules:
     immediate-handoff-patterns:
       - '(?i)\\b(human agent|live agent|representative|speak to (a )?person|talk to (a )?human)\\b'

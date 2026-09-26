@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.service.FinReplyTurnGate;
+import com.lovehibachi.aichatbot.service.FinWebhookRelay;
 import com.lovehibachi.aichatbot.service.SignatureVerifier;
 import com.lovehibachi.aichatbot.service.WebhookIntakeService;
 import java.nio.charset.StandardCharsets;
@@ -34,17 +35,20 @@ public class WebhookController {
     private final SignatureVerifier signatureVerifier;
     private final WebhookIntakeService intakeService;
     private final FinReplyTurnGate finReplyTurnGate;
+    private final FinWebhookRelay finWebhookRelay;
     private final BridgeProperties properties;
     private final ObjectMapper objectMapper;
 
     public WebhookController(SignatureVerifier signatureVerifier,
                              WebhookIntakeService intakeService,
                              FinReplyTurnGate finReplyTurnGate,
+                             FinWebhookRelay finWebhookRelay,
                              BridgeProperties properties,
                              ObjectMapper objectMapper) {
         this.signatureVerifier = signatureVerifier;
         this.intakeService = intakeService;
         this.finReplyTurnGate = finReplyTurnGate;
+        this.finWebhookRelay = finWebhookRelay;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -98,12 +102,18 @@ public class WebhookController {
             LOGGER.info("Accepted verified non-Fin webhook test event: rootFields={}", rootFieldNames(root));
             return ResponseEntity.ok().build();
         }
+        String finConversationId = root.path("conversation_id").asText();
+        if (finWebhookRelay.routes(finConversationId)) {
+            // Route only after verifying Fin's original signature. The destination
+            // receives the raw body and signature and validates them again.
+            finWebhookRelay.relay(finConversationId, finSignature, payload);
+            return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+        }
         String eventId = firstText(root.path("id"), root.path("event_id"), root.path("message").path("id"));
         if (isBlank(eventId)) {
             eventId = eventName + ":" + sha256(payload);
         }
         if ("fin_replied".equals(eventName)) {
-            String finConversationId = root.path("conversation_id").asText();
             if (!isBlank(finConversationId) && !finReplyTurnGate.claimFirstReply(finConversationId)) {
                 /*
                  * Claim at receipt time, before asynchronous persistence/processing.
