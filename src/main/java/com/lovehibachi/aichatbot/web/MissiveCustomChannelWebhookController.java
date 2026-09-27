@@ -47,7 +47,10 @@ public class MissiveCustomChannelWebhookController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook signature");
         }
         JsonNode message = message(read(payload));
-        String conversationId = firstText(message.path("conversation").path("id"), message.path("conversation_id"));
+        // Missive's Custom Channel deliveries use a scalar conversation ID while
+        // other Missive payloads embed it as {"id": "..."}. Accept both shapes.
+        String conversationId = firstText(message.path("conversation").path("id"),
+                message.path("conversation_id"), message.path("conversation"));
         String messageId = firstText(message.path("id"), message.path("external_id"));
         String body = firstText(message.path("body"), message.path("text"), message.path("preview"));
         if (isBlank(conversationId) || isBlank(messageId) || isBlank(body)) {
@@ -65,6 +68,7 @@ public class MissiveCustomChannelWebhookController {
     private JsonNode message(JsonNode root) {
         if (root.path("message").isObject()) { return root.path("message"); }
         if (root.path("messages").isArray() && root.path("messages").size() > 0) { return root.path("messages").get(0); }
+        if (root.path("messages").isObject()) { return root.path("messages"); }
         return root;
     }
     private String firstText(JsonNode... values) {
