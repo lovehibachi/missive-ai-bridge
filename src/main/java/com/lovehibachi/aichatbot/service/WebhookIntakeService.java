@@ -8,6 +8,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WebhookIntakeService {
@@ -20,6 +22,16 @@ public class WebhookIntakeService {
         this.processor = processor;
     }
 
+    /**
+     * Persists an incoming event before the asynchronous processor sees it.
+     *
+     * <p>Custom-channel visitor messages invoke this after the chat-conversation
+     * transaction commits. Spring runs an {@code afterCommit} callback without an
+     * active transaction, so this must explicitly open a new one; otherwise
+     * {@code saveAndFlush} fails and the browser sees a 500 even though Missive
+     * already accepted the visitor message.</p>
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void accept(String provider, String externalEventId, String eventType, String payload) {
         Optional<WebhookEvent> existing = eventRepository.findByProviderAndExternalEventId(provider, externalEventId);
         if (existing.isPresent()) {
