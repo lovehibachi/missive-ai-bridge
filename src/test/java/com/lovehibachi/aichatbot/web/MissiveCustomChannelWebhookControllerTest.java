@@ -15,8 +15,9 @@ import org.springframework.http.HttpStatus;
 
 class MissiveCustomChannelWebhookControllerTest {
     @Test
-    void acceptsMissiveMessagesObjectWithScalarConversationId() {
-        String payload = "{\"messages\":{\"id\":\"message-1\",\"conversation\":\"conversation-1\",\"body\":\"Hello\"}}";
+    void acceptsOfficialMissiveCustomChannelOutboundPayload() {
+        String payload = "{\"message\":{\"id\":\"message-1\",\"body\":\"Hello\"},"
+                + "\"conversation\":{\"id\":\"conversation-1\"}}";
         SignatureVerifier signatures = mock(SignatureVerifier.class);
         when(signatures.isValid(anyString(), anyString(), anyString())).thenReturn(true);
         WebChatService webChatService = mock(WebChatService.class);
