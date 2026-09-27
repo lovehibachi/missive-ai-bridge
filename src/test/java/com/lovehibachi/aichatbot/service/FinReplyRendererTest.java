@@ -35,4 +35,10 @@ class FinReplyRendererTest {
         assertEquals("<p>The final time is confirmed later.</p>",
                 renderer.render("The final time is confirmed later. [<a data-inline-citation=\"\" href=\"https://intercom.help/example\">2</a>]"));
     }
+
+    @Test
+    void removesLeadingBreakAndEmptyParagraphsFromFinHtml() {
+        assertEquals("<p>First paragraph.</p><p>Second paragraph.</p>",
+                renderer.render("<p>First paragraph.</p>\n<p><br>\n  Second paragraph.</p><p><br></p>"));
+    }
 }

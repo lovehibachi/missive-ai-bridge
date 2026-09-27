@@ -4,6 +4,9 @@ import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Component;
 
@@ -33,8 +36,14 @@ public class FinReplyRenderer {
                 : markdownRenderer.render(markdownParser.parse(withoutCitations));
         String sanitized = Jsoup.clean(html, "", ALLOWED_FORMATTING,
                 new Document.OutputSettings().prettyPrint(false));
+        // Normalize this before reparsing. Jsoup preserves the source newline
+        // after a leading <br>, and the ChatScope message shell uses pre-wrap
+        // for plain text; together they otherwise create a large visual gap.
+        sanitized = sanitized.replaceAll("(?is)<p>\\s*<br\\s*/?>\\s*", "<p>")
+                .replaceAll("(?is)<p>\\s*</p>", "");
         Document document = Jsoup.parseBodyFragment(sanitized);
         document.outputSettings().prettyPrint(false);
+        removeEmptyParagraphSpacing(document);
         // Jsoup removes a non-HTTPS href but leaves the anchor element. Expose
         // its text without a non-functional link in the browser chat UI.
         document.select("a:not([href])").unwrap();
@@ -43,6 +52,31 @@ public class FinReplyRenderer {
                 // broad >\\s+< rule: it would remove visible spaces before links.
                 .replaceAll("(?is)(</?(?:p|ul|ol|li|blockquote|pre|h[1-4])>)\\s+(?=</?(?:p|ul|ol|li|blockquote|pre|h[1-4])\\b)", "$1")
                 .replaceAll("(?i)<br>\\s+", "<br>");
+    }
+
+    /**
+     * Fin sometimes returns HTML such as {@code <p><br>Next question</p>}.
+     * That leading break is not content: in the Custom Channel it becomes a
+     * conspicuous blank line inside one message bubble. Retain deliberate
+     * breaks inside a paragraph, but remove leading formatting-only breaks and
+     * paragraphs left empty by the cleanup.
+     */
+    private void removeEmptyParagraphSpacing(Document document) {
+        for (Element paragraph : document.select("p")) {
+            while (!paragraph.childNodes().isEmpty()) {
+                Node first = paragraph.childNode(0);
+                if (first instanceof TextNode && ((TextNode) first).getWholeText().trim().isEmpty()) {
+                    first.remove();
+                    continue;
+                }
+                if (first instanceof Element && "br".equals(((Element) first).tagName())) {
+                    first.remove();
+                    continue;
+                }
+                break;
+            }
+            if (paragraph.text().trim().isEmpty()) { paragraph.remove(); }
+        }
     }
 
     private String removeFinSourceCitations(String reply) {
