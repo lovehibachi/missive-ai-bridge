@@ -84,7 +84,7 @@ public class MissiveClient {
             String messageId = firstText(returned.path("id"), returned.path("message_id"),
                     root.path("id"), root.path("message_id"), root.path("message"));
             String conversationId = firstText(returned.path("conversation").path("id"),
-                    returned.path("conversation_id"), root.path("conversation").path("id"),
+                    returned.path("conversation_id"), returned.path("conversation"), root.path("conversation").path("id"),
                     root.path("conversation_id"), root.path("conversation"));
             if (isBlank(messageId) || isBlank(conversationId)) {
                 LOGGER.warn("Missive Custom Channel response omitted required ids: rootFields={}, messagesType={}, returnedFields={}",

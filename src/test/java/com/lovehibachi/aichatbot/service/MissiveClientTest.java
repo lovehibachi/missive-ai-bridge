@@ -98,7 +98,7 @@ class MissiveClientTest {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
         server.expect(requestTo("https://missive.example.test/v1/messages"))
-                .andRespond(withSuccess("{\"message\":\"message-2\",\"conversation\":\"conversation-2\"}",
+                .andRespond(withSuccess("{\"messages\":{\"id\":\"message-2\",\"conversation\":\"conversation-2\"}}",
                         MediaType.APPLICATION_JSON));
 
         MissiveClient.CustomChannelMessageReceipt receipt = client(restTemplate).receiveCustomChannelMessage(
