@@ -77,11 +77,12 @@ class MissiveClientTest {
         MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
         server.expect(requestTo("https://missive.example.test/v1/messages"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("\"messages\":{\"account\":\"custom-account-1\"")))
                 .andExpect(content().string(containsString("\"account\":\"custom-account-1\"")))
                 .andExpect(content().string(containsString("\"external_id\":\"client-1\"")))
                 .andExpect(content().string(containsString("\"conversation\":\"existing-conversation-1\"")))
                 .andExpect(content().string(not(containsString("test-token"))))
-                .andRespond(withSuccess("{\"messages\":[{\"id\":\"message-1\",\"conversation\":{\"id\":\"conversation-1\"}}]}",
+                .andRespond(withSuccess("{\"messages\":{\"id\":\"message-1\",\"conversation\":{\"id\":\"conversation-1\"}}}",
                         MediaType.APPLICATION_JSON));
 
         MissiveClient.CustomChannelMessageReceipt receipt = client(restTemplate).receiveCustomChannelMessage(

@@ -66,13 +66,17 @@ public class MissiveClient {
             message.put("team", properties.getMissive().getAiTeamId());
         }
         Map<String, Object> request = new LinkedHashMap<String, Object>();
-        request.put("messages", Collections.singletonList(message));
+        // POST /v1/messages accepts one incoming Custom Channel message as an
+        // object. An array is used only by list/bulk response shapes; sending
+        // one here makes Missive reject the request with HTTP 400.
+        request.put("messages", message);
         String response = postForBody("receive_custom_channel_message", "/v1/messages", request,
                 existingConversationId == null ? "new" : existingConversationId);
         try {
             JsonNode root = objectMapper.readTree(response);
-            JsonNode returned = root.path("messages").isArray() && root.path("messages").size() > 0
-                    ? root.path("messages").get(0) : root.path("message");
+            JsonNode messages = root.path("messages");
+            JsonNode returned = messages.isArray() && messages.size() > 0 ? messages.get(0)
+                    : messages.isObject() ? messages : root.path("message");
             String messageId = text(returned.path("id"));
             String conversationId = text(returned.path("conversation").path("id"));
             if (isBlank(conversationId)) { conversationId = text(root.path("conversation").path("id")); }
