@@ -18,7 +18,9 @@ public class FinReplyRenderer {
             "(?is)</?[a-z][a-z0-9]*(?:\\s+[^>]*)?>");
     private static final Safelist ALLOWED_FORMATTING = Safelist.none().addTags(
             "p", "br", "strong", "b", "em", "i", "ul", "ol", "li", "blockquote", "code", "pre",
-            "h1", "h2", "h3", "h4");
+            "h1", "h2", "h3", "h4", "a")
+            .addAttributes("a", "href")
+            .addProtocols("a", "href", "https");
 
     private final Parser markdownParser = Parser.builder().build();
     private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().escapeHtml(true).build();
@@ -32,10 +34,14 @@ public class FinReplyRenderer {
         String sanitized = Jsoup.clean(html, "", ALLOWED_FORMATTING,
                 new Document.OutputSettings().prettyPrint(false));
         Document document = Jsoup.parseBodyFragment(sanitized);
+        document.outputSettings().prettyPrint(false);
+        // Jsoup removes a non-HTTPS href but leaves the anchor element. Expose
+        // its text without a non-functional link in the browser chat UI.
+        document.select("a:not([href])").unwrap();
         return document.body().html().trim()
-                // Markdown renderers add presentation-only newlines between tags.
-                // Keeping one stable compact form makes the outgoing body predictable.
-                .replaceAll(">\\s+<", "><")
+                // Compact whitespace only between block elements. Do not use a
+                // broad >\\s+< rule: it would remove visible spaces before links.
+                .replaceAll("(?is)(</?(?:p|ul|ol|li|blockquote|pre|h[1-4])>)\\s+(?=</?(?:p|ul|ol|li|blockquote|pre|h[1-4])\\b)", "$1")
                 .replaceAll("(?i)<br>\\s+", "<br>");
     }
 

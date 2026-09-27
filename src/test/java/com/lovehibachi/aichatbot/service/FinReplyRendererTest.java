@@ -20,9 +20,14 @@ class FinReplyRendererTest {
     }
 
     @Test
-    void keepsOnlyAllowedHtmlFormattingAndRemovesLinks() {
-        assertEquals("<p>Hello <strong>there</strong> link</p>",
+    void keepsSafeHttpsLinksAndRemovesUnsafeHtml() {
+        assertEquals("<p>Hello <strong>there</strong> <a href=\"https://example.com\">link</a></p>",
                 renderer.render("<p>Hello <strong>there</strong> <a href=\"https://example.com\">link</a><script>alert(1)</script></p>"));
+    }
+
+    @Test
+    void removesNonHttpsLinks() {
+        assertEquals("<p>link</p>", renderer.render("<p><a href=\"http://example.com\">link</a></p>"));
     }
 
     @Test
