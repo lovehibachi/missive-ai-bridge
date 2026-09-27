@@ -93,6 +93,22 @@ class MissiveClientTest {
         server.verify();
     }
 
+    @Test
+    void receivesCustomChannelMessageWhenMissiveReturnsDirectEntity() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        server.expect(requestTo("https://missive.example.test/v1/messages"))
+                .andRespond(withSuccess("{\"message\":\"message-2\",\"conversation\":\"conversation-2\"}",
+                        MediaType.APPLICATION_JSON));
+
+        MissiveClient.CustomChannelMessageReceipt receipt = client(restTemplate).receiveCustomChannelMessage(
+                "12345678901234567890123456789012", "Hello", "client-2", null);
+
+        assertEquals("message-2", receipt.getMessageId());
+        assertEquals("conversation-2", receipt.getConversationId());
+        server.verify();
+    }
+
     private MissiveClient client(RestTemplate restTemplate) {
         BridgeProperties properties = new BridgeProperties();
         properties.getMissive().setApiBaseUrl("https://missive.example.test");

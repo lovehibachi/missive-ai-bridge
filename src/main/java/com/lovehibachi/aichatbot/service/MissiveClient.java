@@ -77,10 +77,18 @@ public class MissiveClient {
             JsonNode messages = root.path("messages");
             JsonNode returned = messages.isArray() && messages.size() > 0 ? messages.get(0)
                     : messages.isObject() ? messages : root.path("message");
-            String messageId = text(returned.path("id"));
-            String conversationId = text(returned.path("conversation").path("id"));
-            if (isBlank(conversationId)) { conversationId = text(root.path("conversation").path("id")); }
+            // Missive documents the `messages` wrapper, but Custom Channel
+            // accounts have also returned the created entity directly. Accept
+            // both response forms, plus the documented `*_id` shortcuts.
+            if (!returned.isObject()) { returned = root; }
+            String messageId = firstText(returned.path("id"), returned.path("message_id"),
+                    root.path("id"), root.path("message_id"), root.path("message"));
+            String conversationId = firstText(returned.path("conversation").path("id"),
+                    returned.path("conversation_id"), root.path("conversation").path("id"),
+                    root.path("conversation_id"), root.path("conversation"));
             if (isBlank(messageId) || isBlank(conversationId)) {
+                LOGGER.warn("Missive Custom Channel response omitted required ids: rootFields={}, messagesType={}, returnedFields={}",
+                        fieldNames(root), messages.getNodeType(), fieldNames(returned));
                 throw new IllegalStateException("Missive Custom Channel response omitted message or conversation id");
             }
             return new CustomChannelMessageReceipt(messageId, conversationId);
@@ -236,6 +244,19 @@ public class MissiveClient {
     private String safeReason(String reason) { return reason == null || reason.trim().isEmpty() ? "需要人工处理" : reason; }
     private String shortToken(String value) { return value == null ? "anonymous" : value.substring(0, Math.min(12, value.length())); }
     private String text(JsonNode value) { return value == null || value.isMissingNode() || value.isNull() ? null : value.asText(); }
+    private String firstText(JsonNode... values) {
+        for (JsonNode value : values) {
+            String candidate = text(value);
+            if (!isBlank(candidate)) { return candidate; }
+        }
+        return null;
+    }
+    private List<String> fieldNames(JsonNode node) {
+        if (node == null || !node.isObject()) { return Collections.emptyList(); }
+        List<String> fields = new ArrayList<String>();
+        node.fieldNames().forEachRemaining(fields::add);
+        return fields;
+    }
     private void requireCustomChannelConfiguration() {
         if (isBlank(properties.getMissive().getCustomChannelAccountId())) {
             throw new IllegalStateException("Missing MISSIVE_CUSTOM_CHANNEL_ACCOUNT_ID");
