@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.domain.ChatConversation;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -114,17 +115,16 @@ public class MissiveClient {
                 "send_human_handoff_acknowledgement");
     }
 
-    /**
-     * Sends a single customer-facing follow-up after an unanswered Fin reply.
-     * Missive Live Chat strips HTML anchors in API-sent messages, so use its
-     * text-link syntax. The visible link label avoids exposing a long campaign
-     * URL in the visitor's chat window.
-     */
+    /** Sends a single customer-facing follow-up after an unanswered Fin reply. */
     public void sendLowPeakFollowUp(ChatConversation conversation) {
-        String bookingUrl = properties.getPromotions().getLowPeakBookingUrl();
-        if (isBlank(bookingUrl)) { throw new IllegalStateException("Missing LOW_PEAK_BOOKING_URL"); }
-        String body = "<p>We have special offers for non-peak weekend times. You can click "
-                + "{{ link:" + bookingUrl + " here }} to submit a booking request.</p>";
+        String bookingUrl = requireHttpsUrl(properties.getPromotions().getLowPeakBookingUrl());
+        String body = usesCustomChannel(conversation)
+                ? "<p>We have special offers for non-peak weekend times. You can click <a href=\""
+                    + escapeHtmlAttribute(bookingUrl) + "\">here</a> to submit a booking request.</p>"
+                // Legacy Live Chat does not render API-sent HTML anchors, but it
+                // understands this documented text-link syntax.
+                : "<p>We have special offers for non-peak weekend times. You can click "
+                    + "{{ link:" + bookingUrl + " here }} to submit a booking request.</p>";
         sendCustomerReply(conversation, body, "send_low_peak_follow_up");
     }
 
@@ -241,6 +241,22 @@ public class MissiveClient {
         }
     }
     private long elapsedMillis(long startedAt) { return (System.nanoTime() - startedAt) / 1000000L; }
+    private String requireHttpsUrl(String value) {
+        if (isBlank(value)) { throw new IllegalStateException("Missing LOW_PEAK_BOOKING_URL"); }
+        try {
+            URI uri = new URI(value);
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || isBlank(uri.getHost())) {
+                throw new IllegalStateException("LOW_PEAK_BOOKING_URL must be an absolute HTTPS URL");
+            }
+            return uri.toASCIIString();
+        } catch (java.net.URISyntaxException exception) {
+            throw new IllegalStateException("LOW_PEAK_BOOKING_URL must be a valid HTTPS URL", exception);
+        }
+    }
+    private String escapeHtmlAttribute(String value) {
+        return value.replace("&", "&amp;").replace("\"", "&quot;")
+                .replace("<", "&lt;").replace(">", "&gt;");
+    }
     private String safeReason(String reason) { return reason == null || reason.trim().isEmpty() ? "需要人工处理" : reason; }
     private String shortToken(String value) { return value == null ? "anonymous" : value.substring(0, Math.min(12, value.length())); }
     private String text(JsonNode value) { return value == null || value.isMissingNode() || value.isNull() ? null : value.asText(); }

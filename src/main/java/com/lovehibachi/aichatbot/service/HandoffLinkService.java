@@ -34,11 +34,11 @@ public class HandoffLinkService {
     }
 
     /**
-     * Adds a visitor-facing human-handoff link to a normal Fin reply. Missive
-     * Live Chat strips HTML anchors in API-sent messages, so this deliberately
-     * uses its documented text-link syntax instead of an HTML {@code <a>} tag.
-     * The opaque token is stored only as a hash, so a database read cannot be
-     * used to impersonate a visitor and request a handoff for their conversation.
+     * Adds a visitor-facing human-handoff link to a normal Fin reply. Legacy
+     * Live Chat needs its text-link syntax; Custom Channel conversations render
+     * normal safe HTML anchors. The opaque token is stored only as a hash, so a
+     * database read cannot be used to impersonate a visitor and request a
+     * handoff for their conversation.
      */
     @Transactional
     public String appendToFinReply(ChatConversation conversation, String answerHtml) {
@@ -49,8 +49,15 @@ public class HandoffLinkService {
         link.setExpiresAt(Instant.now().plusSeconds(properties.getHandoffLinks().getTtlMinutes() * 60L));
         linkRepository.save(link);
         String href = publicBaseUrl() + "/handoff/" + token;
-        // A blank paragraph is retained by the Live Chat widget, unlike CSS
-        // margins on <small>. Keep this CTA visually separate from Fin's answer.
+        if (usesCustomChannel(conversation)) {
+            // Keep this legacy facility compatible with the Custom Channel if
+            // it is re-enabled later. It currently has no production caller;
+            // the custom chat's quick action is the active handoff control.
+            return answerHtml + "<p>Need more help? <a href=\"" + escapeHtmlAttribute(href)
+                    + "\">Talk to a human</a></p>";
+        }
+        // A blank paragraph is retained by the legacy Live Chat widget, unlike
+        // CSS margins on <small>. Keep its documented text-link syntax here.
         return answerHtml + "<p><br></p><p>Need more help? {{ link:" + href + " Talk to a human }}</p>";
     }
 
@@ -98,6 +105,15 @@ public class HandoffLinkService {
         String value = properties.getHandoffLinks().getPublicBaseUrl();
         if (value == null || value.trim().isEmpty()) { throw new IllegalStateException("Missing BRIDGE_PUBLIC_BASE_URL"); }
         return value.replaceAll("/+$", "");
+    }
+    private boolean usesCustomChannel(ChatConversation conversation) {
+        String accountId = properties.getMissive().getCustomChannelAccountId();
+        return accountId != null && !accountId.trim().isEmpty() && conversation != null
+                && accountId.equals(conversation.getLiveChatAccountId());
+    }
+    private String escapeHtmlAttribute(String value) {
+        return value.replace("&", "&amp;").replace("\"", "&quot;")
+                .replace("<", "&lt;").replace(">", "&gt;");
     }
     private String sha256(String value) {
         try {

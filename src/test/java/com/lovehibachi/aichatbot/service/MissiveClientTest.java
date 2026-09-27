@@ -20,7 +20,7 @@ import org.springframework.web.client.RestTemplate;
 class MissiveClientTest {
 
     @Test
-    void lowPeakPromotionDoesNotContainHumanHandoffLink() {
+    void lowPeakPromotionUsesLegacyTextLinkForLiveChat() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
         server.expect(requestTo("https://missive.example.test/v1/drafts"))
@@ -33,6 +33,22 @@ class MissiveClientTest {
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         client(restTemplate).sendLowPeakFollowUp(conversation());
+
+        server.verify();
+    }
+
+    @Test
+    void lowPeakPromotionUsesHtmlLinkForCustomChannel() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        server.expect(requestTo("https://missive.example.test/v1/drafts"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("fin_low_peak")))
+                .andExpect(content().string(containsString("<a href=\\\"https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak\\\">here</a>")))
+                .andExpect(content().string(not(containsString("{{ link:"))))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client(restTemplate).sendLowPeakFollowUp(customChannelConversation());
 
         server.verify();
     }
@@ -129,6 +145,12 @@ class MissiveClientTest {
         conversation.setMissiveConversationId("missive-conversation-1");
         conversation.setLiveChatAccountId("live-chat-account-1");
         conversation.setVisitorToFields("[]");
+        return conversation;
+    }
+
+    private ChatConversation customChannelConversation() {
+        ChatConversation conversation = conversation();
+        conversation.setLiveChatAccountId("custom-account-1");
         return conversation;
     }
 }

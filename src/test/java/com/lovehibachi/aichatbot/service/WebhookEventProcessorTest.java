@@ -111,7 +111,8 @@ class WebhookEventProcessorTest {
 
         processor().process("markdown-citation");
 
-        verify(missiveClient).sendFinReply(conversation, "<p>• The final time is confirmed later.</p>");
+        verify(missiveClient).sendFinReply(conversation,
+                "<ul><li>The final time is confirmed later.</li></ul>");
     }
 
     @Test

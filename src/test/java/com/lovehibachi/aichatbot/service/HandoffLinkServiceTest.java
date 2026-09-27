@@ -45,6 +45,23 @@ class HandoffLinkServiceTest {
     }
 
     @Test
+    void appendsHtmlHumanLinkForCustomChannelWithoutPersistingTheRawToken() {
+        ChatConversation conversation = conversation();
+        conversation.setLiveChatAccountId("custom-account-1");
+        HandoffLinkService service = service();
+
+        String rendered = service.appendToFinReply(conversation, "<p>Answer</p>");
+
+        assertTrue(rendered.startsWith("<p>Answer</p><p>Need more help? <a href=\"https://aiservices.letsgohibachi.com/handoff/"));
+        assertTrue(rendered.endsWith("\">Talk to a human</a></p>"));
+        assertFalse(rendered.contains("{{ link:"));
+        ArgumentCaptor<HandoffLink> captured = ArgumentCaptor.forClass(HandoffLink.class);
+        verify(linkRepository).save(captured.capture());
+        assertEquals(conversation, captured.getValue().getConversation());
+        assertEquals(64, captured.getValue().getTokenHash().length());
+    }
+
+    @Test
     void confirmationConsumesTokenAndUsesExistingHandoffFlow() {
         ChatConversation conversation = conversation();
         HandoffLink link = new HandoffLink();
@@ -64,6 +81,7 @@ class HandoffLinkServiceTest {
         BridgeProperties properties = new BridgeProperties();
         properties.getHandoffLinks().setPublicBaseUrl("https://aiservices.letsgohibachi.com");
         properties.getHandoffLinks().setTtlMinutes(60L);
+        properties.getMissive().setCustomChannelAccountId("custom-account-1");
         return new HandoffLinkService(linkRepository, handoffService, properties);
     }
 
