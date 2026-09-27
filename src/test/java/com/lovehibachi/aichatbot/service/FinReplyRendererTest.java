@@ -8,14 +8,14 @@ class FinReplyRendererTest {
     private final FinReplyRenderer renderer = new FinReplyRenderer();
 
     @Test
-    void convertsMarkdownToMissiveSafeHtml() {
-        assertEquals("<p><strong>Welcome</strong></p><p>• One<br>• Two</p>",
+    void preservesMarkdownListAsSemanticHtml() {
+        assertEquals("<p><strong>Welcome</strong></p><ul><li>One</li><li>Two</li></ul>",
                 renderer.render("**Welcome**\n\n* One\n* Two"));
     }
 
     @Test
-    void convertsOrderedListToLiveChatSafeNumberedLines() {
-        assertEquals("<p>1. First<br>2. Second</p>",
+    void preservesOrderedListAsSemanticHtml() {
+        assertEquals("<ol><li>First</li><li>Second</li></ol>",
                 renderer.render("1. First\n2. Second"));
     }
 
