@@ -4,8 +4,10 @@ import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.service.WebChatNotifier;
 import com.lovehibachi.aichatbot.service.WebChatService;
 import java.util.List;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -36,7 +38,9 @@ public class WebChatController {
 
     @GetMapping("/messages")
     public ChatResponse messages(@RequestParam("session") String session,
-                                 @RequestParam(value = "after", required = false) String after) {
+                                 @RequestParam(value = "after", required = false) String after,
+                                 HttpServletResponse servletResponse) {
+        preventCaching(servletResponse);
         return new ChatResponse(webChatService.messages(session, after));
     }
 
@@ -46,7 +50,9 @@ public class WebChatController {
      */
     @GetMapping("/events")
     public DeferredResult<ChatResponse> events(@RequestParam("session") String session,
-                                                @RequestParam(value = "after", required = false) String after) {
+                                                @RequestParam(value = "after", required = false) String after,
+                                                HttpServletResponse servletResponse) {
+        preventCaching(servletResponse);
         List<WebChatService.WebChatMessage> immediate = webChatService.messages(session, after);
         if (!immediate.isEmpty()) {
             DeferredResult<ChatResponse> result = new DeferredResult<ChatResponse>();
@@ -58,6 +64,18 @@ public class WebChatController {
         notifier.waitForMessage(session, response,
                 () -> response.setResult(new ChatResponse(webChatService.messages(session, after))));
         return response;
+    }
+
+    /**
+     * Long-poll and history responses are session-specific and change whenever
+     * Missive delivers a reply. Allowing a browser or intermediary to reuse an
+     * earlier empty GET response makes the chat appear stuck even though the
+     * message is already stored by the bridge.
+     */
+    private void preventCaching(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, max-age=0, must-revalidate");
+        response.setHeader(HttpHeaders.PRAGMA, "no-cache");
+        response.setDateHeader(HttpHeaders.EXPIRES, 0L);
     }
 
     @PostMapping("/messages")
