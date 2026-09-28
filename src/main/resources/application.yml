@@ -20,16 +20,38 @@ bridge:
     live-chat-account-id: ${MISSIVE_LIVE_CHAT_ACCOUNT_ID:}
     organization-id: ${MISSIVE_ORGANIZATION_ID:}
     need-human-label-id: ${MISSIVE_NEED_HUMAN_LABEL_ID:}
+    handoff-team-id: ${MISSIVE_HANDOFF_TEAM_ID:}
+    ai-team-id: ${MISSIVE_AI_TEAM_ID:}
   fin:
     api-base-url: ${FIN_API_BASE_URL:https://api.intercom.io}
     api-key: ${FIN_API_KEY:}
     webhook-secret: ${FIN_WEBHOOK_SECRET:}
+    client-secret: ${INTERCOM_CLIENT_SECRET:}
     api-version: ${FIN_API_VERSION:2.16}
+    # Prefix is part of our external Fin conversation_id. Test uses fin:test:missive,
+    # so the one Fin callback can safely distinguish it from production traffic.
+    conversation-id-prefix: ${FIN_CONVERSATION_ID_PREFIX:fin:missive}
+    webhook-relay:
+      # Only set these on the callback-owning production instance. The payload is
+      # signature-verified first, then forwarded unchanged to the local test bridge.
+      conversation-id-prefix: ${FIN_WEBHOOK_RELAY_CONVERSATION_ID_PREFIX:}
+      target-url: ${FIN_WEBHOOK_RELAY_TARGET_URL:}
   rules:
     immediate-handoff-patterns:
       - '(?i)\\b(human agent|live agent|representative|speak to (a )?person|talk to (a )?human)\\b'
       - '(?i)\\b(cancel my order|request (a )?refund|refund my deposit|chargeback)\\b'
       - '(?i)\\b(allergy|allergic reaction|food poisoning|got sick|injured|legal action)\\b'
+  promotions:
+    low-peak-follow-up-enabled: ${LOW_PEAK_FOLLOW_UP_ENABLED:true}
+    low-peak-follow-up-delay-seconds: ${LOW_PEAK_FOLLOW_UP_DELAY_SECONDS:60}
+    # Do not send a stale promotion after a restart or an extended outage.
+    low-peak-follow-up-max-age-seconds: ${LOW_PEAK_FOLLOW_UP_MAX_AGE_SECONDS:300}
+    low-peak-booking-url: "${LOW_PEAK_BOOKING_URL:https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak}"
+  handoff-links:
+    public-base-url: ${BRIDGE_PUBLIC_BASE_URL:https://aiservices.letsgohibachi.com}
+    ttl-minutes: ${HANDOFF_LINK_TTL_MINUTES:1440}
+  admin:
+    token: ${BRIDGE_ADMIN_TOKEN:}
 
 logging:
   level:

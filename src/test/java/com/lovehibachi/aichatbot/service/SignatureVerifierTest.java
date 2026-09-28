@@ -26,9 +26,21 @@ class SignatureVerifierTest {
         assertFalse(verifier.isValid("", signature, body));
     }
 
+    @Test
+    void acceptsAValidIntercomHubSignature() throws Exception {
+        String secret = "intercom-client-secret";
+        String body = "{\"event_name\":\"fin_replied\"}";
+        assertTrue(verifier.isValidIntercomHubSignature(secret,
+                "sha1=" + hmac("HmacSHA1", secret, body), body));
+    }
+
     private String hmac(String secret, String body) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return hmac("HmacSHA256", secret, body);
+    }
+
+    private String hmac(String algorithm, String secret, String body) throws Exception {
+        Mac mac = Mac.getInstance(algorithm);
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), algorithm));
         byte[] bytes = mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
         StringBuilder hex = new StringBuilder();
         for (byte value : bytes) { hex.append(String.format("%02x", value & 0xff)); }

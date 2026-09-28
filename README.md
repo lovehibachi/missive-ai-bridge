@@ -15,9 +15,13 @@ Missive 入站 Webhook
   -> 同一条 Missive Live Chat 会话
 
 Fin status=escalated / 硬规则命中
-  -> POST /v1/posts（内部提醒 + 需人工标签 + Inbox + warning）
+  -> POST /v1/posts（内部提醒 + 橙色需人工标签 + 移入“人工接管”Team Inbox）
   -> 停止这条会话的后续 AI 写回
 ```
+
+当 Fin 已回复、客户在 60 秒内未继续发言时，服务会在同一会话发送一次低峰周末优惠引导；链接指向 Booking Request 并带 `utm_campaign=fin_low_peak`。每个客户提问轮次最多发送一次，客户再次发言后会为下一轮重新计时。为防止服务重启后骚扰旧会话，默认只处理最近 5 分钟内的 Fin 回复。
+
+普通 Fin 回复不附带“Talk to a human”链接，也不再创建新的 handoff token。Fin Guidance、Fin escalation status 与硬规则仍可触发人工接管；现有人工接管流程会在保留同一会话历史的前提下移入“人工接管”Team Inbox。保留的 `handoff_links` 仅用于已发出的旧链接及未来自建聊天前端的迁移参考。
 
 服务使用 Fin 的 Webhook 作为可靠业务事件来源，不依赖浏览器 SSE。每个入站事件及 Fin 回复均按外部 ID 去重；不能立即完成的事件会持久化并重试。
 
@@ -25,7 +29,7 @@ Fin status=escalated / 硬规则命中
 
 1. 在 Missive 创建服务用户/席位 `Fin AI`，为其生成独立 PAT，并赋予访问网站 Live Chat 会话、创建 Draft 和 Post 的权限。
 2. 不要新建第二个 Live Chat 连接帐号。AI 使用 `Fin AI` 的 PAT 鉴权，但 Draft 的 `account` 是已有的 `Website Live Chat` account ID。
-3. 在 Missive 建立共享标签 `需人工`，并取得其 ID、组织 ID、Live Chat account ID。
+3. 在 Missive 建立共享标签 `需人工`，并取得其 ID、组织 ID、Live Chat account ID。另建一个专用的“人工接管”Team Inbox：实际值班客服设为 Active，AI Chat Team 的成员设为 Observer；Team 的回复行为设为“Leave the conversation in the team Inbox”，避免自动分配给个人。
 4. 为现有网站 Live Chat 的访客入站消息创建 Missive Rule，动作是 Webhook，URL 为 `https://<bridge-host>/webhooks/missive/inbound`；设置签名密钥。先在隔离/测试通道验证 payload。
 5. 在 Intercom/Fin Agent API 设置回调 URL `https://<bridge-host>/webhooks/fin` 与签名密钥。Fin Agent API 需先获 API 访问权限。
 6. 在 Fin 中配置 Escalation Guidance / Rules（退款、取消、食品安全、明确要求人工等）。这才是复杂语义的主判断层；服务里的正则仅是确定性第一道防线。
@@ -42,9 +46,19 @@ export MISSIVE_WEBHOOK_SECRET='...'
 export MISSIVE_LIVE_CHAT_ACCOUNT_ID='...'
 export MISSIVE_ORGANIZATION_ID='...'
 export MISSIVE_NEED_HUMAN_LABEL_ID='...'
+export MISSIVE_HANDOFF_TEAM_ID='...'
 
 export FIN_API_KEY='...'
 export FIN_WEBHOOK_SECRET='...'
+export INTERCOM_CLIENT_SECRET='...'
+
+export LOW_PEAK_FOLLOW_UP_ENABLED='true'
+export LOW_PEAK_FOLLOW_UP_DELAY_SECONDS='60'
+export LOW_PEAK_FOLLOW_UP_MAX_AGE_SECONDS='300'
+export LOW_PEAK_BOOKING_URL='https://lovehibachi.com/booking-request/?utm_campaign=fin_low_peak'
+
+export BRIDGE_PUBLIC_BASE_URL='https://aiservices.letsgohibachi.com'
+export HANDOFF_LINK_TTL_MINUTES='1440'
 ```
 
 可选环境变量：`MISSIVE_API_BASE_URL`、`FIN_API_BASE_URL`、`FIN_API_VERSION`。默认值分别是 `https://public.missiveapp.com`、`https://api.intercom.io`、`2.16`。
@@ -86,7 +100,7 @@ Webhook 端点：
 1. 在测试 Live Chat 发一条普通问题，确认 Missive Rule 收到 Webhook，服务调用 `/fin/start`。
 2. 确认 Fin 回调的所有 `fin_replied` 被缓冲，只有 `awaiting_user_reply` 后访客才在原窗口看到一条完整回答。
 3. 追问一次，确认服务调用 `/fin/reply`，并仍写回同一 Missive 会话。
-4. 发送“转人工”或让 Fin 命中 Escalation Rule，确认该会话停止 AI 回复、显示内部通知、加 `需人工` 标签并进入共享 Inbox；不应自动指派某位客服。
+4. 发送“转人工”或让 Fin 命中 Escalation Rule，确认该会话停止 AI 回复、显示内部通知、加橙色 `需人工` 标签并移入“人工接管”Team Inbox；不应自动指派某位客服。
 5. 重放同一 Webhook，确认不会重复调用 Fin、重复回复或重复创建人工提醒。
 6. 通过 Missive 实际 Rule payload 核对 `conversation.id`、`latest_message.id`、`latest_message.from_field`、Live Chat account 字段。不同账号/规则的有效负载若不同，应先调整 `MissiveInboundMessage` 解析器再上线。
 

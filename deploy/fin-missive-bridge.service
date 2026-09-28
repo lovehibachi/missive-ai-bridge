@@ -17,7 +17,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=full
-ReadWritePaths=/var/lib/fin-missive-bridge
+ReadWritePaths=/var/lib/fin-missive-bridge /opt/fin-missive-bridge/log
 
 [Install]
 WantedBy=multi-user.target

@@ -19,9 +19,11 @@ public class MissiveInboundMessage {
     public Snapshot parse(String rawPayload) throws Exception {
         JsonNode root = objectMapper.readTree(rawPayload);
         JsonNode conversation = root.path("conversation");
-        JsonNode message = root.path("latest_message");
+        // Missive generic webhooks commonly use latest_message, while native Live
+        // Chat deliveries put the incoming message directly in message.
+        JsonNode message = root.hasNonNull("message") ? root.path("message") : root.path("latest_message");
         String conversationId = required(conversation.path("id"), "conversation.id");
-        String messageId = required(message.path("id"), "latest_message.id");
+        String messageId = required(message.path("id"), "message.id");
         JsonNode from = message.path("from_field");
         String senderId = text(from.path("id"));
         String username = text(from.path("username"));
