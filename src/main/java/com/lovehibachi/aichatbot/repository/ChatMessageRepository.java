@@ -2,6 +2,7 @@ package com.lovehibachi.aichatbot.repository;
 
 import com.lovehibachi.aichatbot.domain.ChatMessage;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, String> {
@@ -11,4 +12,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, String
             String conversationId, String excludedExternalMessageId);
 
     List<ChatMessage> findTop200ByConversation_IdOrderByCreatedAtAsc(String conversationId);
+
+    Optional<ChatMessage> findTopByConversation_IdOrderByCreatedAtDesc(String conversationId);
 }

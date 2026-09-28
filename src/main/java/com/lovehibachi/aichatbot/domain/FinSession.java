@@ -45,6 +45,10 @@ public class FinSession {
     @Column(name = "low_peak_follow_up_sent_at")
     private Instant lowPeakFollowUpSentAt;
 
+    /** Greeting selected when the visitor began this turn; delivered before Fin's first reply. */
+    @Column(name = "greeting_html", columnDefinition = "text")
+    private String greetingHtml;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -73,4 +77,6 @@ public class FinSession {
     public void setFirstReplySentAt(Instant value) { firstReplySentAt = value; }
     public Instant getLowPeakFollowUpSentAt() { return lowPeakFollowUpSentAt; }
     public void setLowPeakFollowUpSentAt(Instant value) { lowPeakFollowUpSentAt = value; }
+    public String getGreetingHtml() { return greetingHtml; }
+    public void setGreetingHtml(String value) { greetingHtml = value; }
 }

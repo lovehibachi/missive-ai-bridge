@@ -44,6 +44,10 @@ public class ChatConversation {
     @Column(name = "web_chat_session_token", length = 128, unique = true)
     private String webChatSessionToken;
 
+    /** IANA time zone reported by the first-party browser chat, used only for greeting copy. */
+    @Column(name = "web_chat_timezone", length = 64)
+    private String webChatTimezone;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -77,4 +81,6 @@ public class ChatConversation {
     public void setLastMissiveMessageId(String value) { this.lastMissiveMessageId = value; }
     public String getWebChatSessionToken() { return webChatSessionToken; }
     public void setWebChatSessionToken(String value) { this.webChatSessionToken = value; }
+    public String getWebChatTimezone() { return webChatTimezone; }
+    public void setWebChatTimezone(String value) { this.webChatTimezone = value; }
 }

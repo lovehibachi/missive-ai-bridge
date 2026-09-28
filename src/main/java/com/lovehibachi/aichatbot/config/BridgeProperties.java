@@ -145,10 +145,13 @@ public class BridgeProperties {
     public static class WebChat {
         private String allowedOrigin = "";
         private long longPollTimeoutMillis = 25000L;
+        private String greetingFallbackTimezone = "America/New_York";
         public String getAllowedOrigin() { return allowedOrigin; }
         public void setAllowedOrigin(String value) { allowedOrigin = value; }
         public long getLongPollTimeoutMillis() { return longPollTimeoutMillis; }
         public void setLongPollTimeoutMillis(long value) { longPollTimeoutMillis = value; }
+        public String getGreetingFallbackTimezone() { return greetingFallbackTimezone; }
+        public void setGreetingFallbackTimezone(String value) { greetingFallbackTimezone = value; }
     }
 
     public static class Admin {

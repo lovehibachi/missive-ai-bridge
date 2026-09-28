@@ -82,7 +82,7 @@ public class WebChatController {
     public ResponseEntity<Void> send(@RequestHeader(value = "X-Chat-Session", required = false) String session,
                                      @Valid @RequestBody SendMessage request) {
         if (session == null) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing chat session"); }
-        webChatService.receiveVisitorMessage(session, request.getClientMessageId(), request.getBody());
+        webChatService.receiveVisitorMessage(session, request.getClientMessageId(), request.getBody(), request.getBrowserTimezone());
         return ResponseEntity.accepted().build();
     }
 
@@ -97,10 +97,13 @@ public class WebChatController {
         @NotBlank
         private String body;
         private String clientMessageId;
+        private String browserTimezone;
         public String getBody() { return body; }
         public void setBody(String body) { this.body = body; }
         public String getClientMessageId() { return clientMessageId; }
         public void setClientMessageId(String clientMessageId) { this.clientMessageId = clientMessageId; }
+        public String getBrowserTimezone() { return browserTimezone; }
+        public void setBrowserTimezone(String browserTimezone) { this.browserTimezone = browserTimezone; }
     }
     public static class ChatResponse {
         private final List<WebChatService.WebChatMessage> messages;

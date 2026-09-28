@@ -44,7 +44,10 @@ public class MissiveInboundMessage {
         if (accountId == null || accountId.trim().isEmpty()) {
             throw new IllegalStateException("Missing MISSIVE_LIVE_CHAT_ACCOUNT_ID");
         }
-        return new Snapshot(conversationId, messageId, visitorId, body, objectMapper.writeValueAsString(objectMapper.createArrayNode().add(target)), accountId);
+        String greetingKind = text(root.path("web_chat").path("greeting_kind"));
+        if (!"first".equals(greetingKind) && !"returning".equals(greetingKind)) { greetingKind = null; }
+        return new Snapshot(conversationId, messageId, visitorId, body,
+                objectMapper.writeValueAsString(objectMapper.createArrayNode().add(target)), accountId, greetingKind);
     }
 
     private String required(JsonNode node, String field) {
@@ -65,9 +68,15 @@ public class MissiveInboundMessage {
         private final String body;
         private final String toFieldsJson;
         private final String accountId;
+        private final String webChatGreetingKind;
         Snapshot(String conversationId, String messageId, String visitorId, String body, String toFieldsJson, String accountId) {
+            this(conversationId, messageId, visitorId, body, toFieldsJson, accountId, null);
+        }
+        Snapshot(String conversationId, String messageId, String visitorId, String body, String toFieldsJson,
+                 String accountId, String webChatGreetingKind) {
             this.conversationId = conversationId; this.messageId = messageId; this.visitorId = visitorId;
             this.body = body; this.toFieldsJson = toFieldsJson; this.accountId = accountId;
+            this.webChatGreetingKind = webChatGreetingKind;
         }
         public String getConversationId() { return conversationId; }
         public String getMessageId() { return messageId; }
@@ -75,5 +84,6 @@ public class MissiveInboundMessage {
         public String getBody() { return body; }
         public String getToFieldsJson() { return toFieldsJson; }
         public String getAccountId() { return accountId; }
+        public String getWebChatGreetingKind() { return webChatGreetingKind; }
     }
 }

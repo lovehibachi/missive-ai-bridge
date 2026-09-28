@@ -46,6 +46,7 @@ public class WebhookEventProcessor {
     private final HandoffService handoffService;
     private final FinReplyTurnGate finReplyTurnGate;
     private final FinReplyRenderer finReplyRenderer;
+    private final WebChatGreetingService webChatGreetingService;
     private final ObjectMapper objectMapper;
     private final BridgeProperties properties;
 
@@ -60,6 +61,7 @@ public class WebhookEventProcessor {
                                  HandoffService handoffService,
                                  FinReplyTurnGate finReplyTurnGate,
                                  FinReplyRenderer finReplyRenderer,
+                                 WebChatGreetingService webChatGreetingService,
                                  ObjectMapper objectMapper,
                                  BridgeProperties properties) {
         this.eventRepository = eventRepository;
@@ -73,6 +75,7 @@ public class WebhookEventProcessor {
         this.handoffService = handoffService;
         this.finReplyTurnGate = finReplyTurnGate;
         this.finReplyRenderer = finReplyRenderer;
+        this.webChatGreetingService = webChatGreetingService;
         this.objectMapper = objectMapper;
         this.properties = properties;
     }
@@ -169,6 +172,8 @@ public class WebhookEventProcessor {
             newSession.setCycleNumber(active == null ? 1 : active.getCycleNumber() + 1);
             newSession.setFinConversationId(finConversationId(conversation.getMissiveConversationId()));
             newSession.setStatus("thinking");
+            newSession.setGreetingHtml(webChatGreetingService.greetingHtml(
+                    inbound.getWebChatGreetingKind(), conversation.getWebChatTimezone()));
             sessionRepository.save(newSession);
             finReplyTurnGate.reset(newSession.getFinConversationId());
             LOGGER.info("Starting Fin session: eventId={}, missiveConversationId={}, finConversationId={}, cycle={}",
@@ -182,6 +187,8 @@ public class WebhookEventProcessor {
             // A real customer message starts a new display turn.
             active.setFirstReplySentAt(null);
             active.setLowPeakFollowUpSentAt(null);
+            active.setGreetingHtml(webChatGreetingService.greetingHtml(
+                    inbound.getWebChatGreetingKind(), conversation.getWebChatTimezone()));
             sessionRepository.save(active);
             finReplyTurnGate.reset(active.getFinConversationId());
             LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",
@@ -265,7 +272,8 @@ public class WebhookEventProcessor {
                  * If Fin starts consistently delivering terminal events again, reassess
                  * whether multi-part replies should be aggregated before sending.
                 */
-                sendReplyImmediately(session, conversation, answer);
+                sendReplyImmediately(session, conversation, prependGreeting(session, answer));
+                session.setGreetingHtml(null);
                 session.setFirstReplySentAt(Instant.now());
             }
             // The immediate customer reply begins the next turn, regardless of Fin's
@@ -346,12 +354,17 @@ public class WebhookEventProcessor {
             recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
         }
     }
+    private String prependGreeting(FinSession session, String reply) {
+        String greeting = session.getGreetingHtml();
+        return greeting == null || greeting.trim().isEmpty() ? reply : greeting + reply;
+    }
     private void flushReply(FinSession session, ChatConversation conversation) {
         String reply = finReplyRenderer.render(session.getReplyBuffer());
         if (conversation.getState() == ConversationState.AI_HANDLING && reply != null && !reply.trim().isEmpty()) {
             LOGGER.info("Sending buffered Fin reply to Missive: finConversationId={}, missiveConversationId={}, bodyLength={}",
                     session.getFinConversationId(), conversation.getMissiveConversationId(), reply.length());
-            missiveClient.sendFinReply(conversation, reply);
+            missiveClient.sendFinReply(conversation, prependGreeting(session, reply));
+            session.setGreetingHtml(null);
             if (!missiveClient.usesCustomChannel(conversation)) {
                 recordMessage(conversation, "fin:" + session.getFinConversationId() + ":" + UUID.randomUUID().toString(), "fin", reply);
             }

@@ -82,6 +82,22 @@ class WebhookEventProcessorTest {
     }
 
     @Test
+    void prependsPendingWebChatGreetingToTheFirstFinReply() {
+        ChatConversation conversation = conversation();
+        FinSession session = session(conversation);
+        session.setGreetingHtml("<p>Good morning!</p>");
+        WebhookEvent reply = finReply("replying", "How can I help?");
+        when(eventRepository.findById("greeting")).thenReturn(Optional.of(reply));
+        when(sessionRepository.findByFinConversationId("fin-1")).thenReturn(Optional.of(session));
+        when(messageRepository.existsByExternalMessageId(anyString())).thenReturn(false);
+
+        processor().process("greeting");
+
+        verify(missiveClient).sendFinReply(conversation, "<p>Good morning!</p><p>How can I help?</p>");
+        assertNull(session.getGreetingHtml());
+    }
+
+    @Test
     void finGuidanceHandoffMarkerRequestsHumanWithoutSendingItToVisitor() {
         ChatConversation conversation = conversation();
         FinSession session = session(conversation);
@@ -245,7 +261,7 @@ class WebhookEventProcessorTest {
     private WebhookEventProcessor processor(BridgeProperties properties) {
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
                 inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate,
-                new FinReplyRenderer(), new ObjectMapper(), properties);
+                new FinReplyRenderer(), new WebChatGreetingService(properties), new ObjectMapper(), properties);
     }
 
     private WebhookEvent finReply(String status, String body) {

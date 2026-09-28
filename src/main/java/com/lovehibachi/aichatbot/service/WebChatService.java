@@ -12,6 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.ZoneId;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
@@ -57,11 +59,12 @@ public class WebChatService {
 
     /** Sends a browser visitor message to Missive, then asynchronously starts or continues Fin. */
     @Transactional
-    public void receiveVisitorMessage(String sessionToken, String clientMessageId, String body) {
+    public void receiveVisitorMessage(String sessionToken, String clientMessageId, String body, String browserTimezone) {
         validateSession(sessionToken);
         String plainBody = normalizeVisitorBody(body);
         String externalId = isBlank(clientMessageId) ? "web:" + UUID.randomUUID().toString() : "web:" + clientMessageId;
         ChatConversation existing = conversationRepository.findByWebChatSessionToken(sessionToken).orElse(null);
+        String greetingKind = greetingKind(existing);
         MissiveClient.CustomChannelMessageReceipt receipt = missiveClient.receiveCustomChannelMessage(
                 sessionToken, escapeHtml(plainBody), externalId,
                 existing == null ? null : existing.getMissiveConversationId());
@@ -74,10 +77,13 @@ public class WebChatService {
             conversation.setWebChatSessionToken(sessionToken);
             conversation.setState(ConversationState.AI_HANDLING);
         }
+        String timezone = normalizeTimezone(browserTimezone);
+        if (timezone != null) { conversation.setWebChatTimezone(timezone); }
         conversation.setLastMissiveMessageId(receipt.getMessageId());
         conversationRepository.save(conversation);
         persistIfAbsent(conversation, receipt.getMessageId(), "user", escapeHtml(plainBody));
-        final String payload = syntheticInboundPayload(receipt.getConversationId(), receipt.getMessageId(), sessionToken, plainBody);
+        final String payload = syntheticInboundPayload(receipt.getConversationId(), receipt.getMessageId(), sessionToken,
+                plainBody, greetingKind);
         afterCommit(() -> {
             // The async Fin worker must not race the transaction that created the
             // conversation and visitor message. It can safely query them now.
@@ -142,7 +148,8 @@ public class WebChatService {
         return new WebChatMessage(message.getId(), message.getAuthor(), sanitizeHtml(message.getBody()), message.getCreatedAt().toString());
     }
 
-    private String syntheticInboundPayload(String conversationId, String messageId, String sessionToken, String body) {
+    private String syntheticInboundPayload(String conversationId, String messageId, String sessionToken, String body,
+                                           String greetingKind) {
         try {
             Map<String, Object> root = new LinkedHashMap<String, Object>();
             root.put("conversation", java.util.Collections.singletonMap("id", conversationId));
@@ -156,6 +163,9 @@ public class WebChatService {
             from.put("name", "Website visitor");
             message.put("from_field", from);
             root.put("message", message);
+            if (greetingKind != null) {
+                root.put("web_chat", java.util.Collections.singletonMap("greeting_kind", greetingKind));
+            }
             return objectMapper.writeValueAsString(root);
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to serialize Custom Channel inbound message", exception);
@@ -178,6 +188,17 @@ public class WebChatService {
         if (trimmed.isEmpty()) { throw new IllegalArgumentException("Message body is required"); }
         if (trimmed.length() > MAX_MESSAGE_LENGTH) { throw new IllegalArgumentException("Message is too long"); }
         return trimmed;
+    }
+    private String greetingKind(ChatConversation conversation) {
+        if (conversation == null) { return "first"; }
+        ChatMessage latest = messageRepository.findTopByConversation_IdOrderByCreatedAtDesc(conversation.getId()).orElse(null);
+        if (latest == null) { return "first"; }
+        return latest.getCreatedAt().isBefore(Instant.now().minusSeconds(3 * 60 * 60)) ? "returning" : null;
+    }
+    private String normalizeTimezone(String value) {
+        if (isBlank(value)) { return null; }
+        try { return ZoneId.of(value.trim()).getId(); }
+        catch (Exception ignored) { return null; }
     }
     private String sanitizeHtml(String value) {
         String clean = Jsoup.clean(value == null ? "" : value, "", WEB_CHAT_HTML);
