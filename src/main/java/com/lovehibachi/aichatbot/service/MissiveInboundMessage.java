@@ -46,8 +46,10 @@ public class MissiveInboundMessage {
         }
         String greetingKind = text(root.path("web_chat").path("greeting_kind"));
         if (!"first".equals(greetingKind) && !"returning".equals(greetingKind)) { greetingKind = null; }
+        String greetingLanguage = text(root.path("web_chat").path("greeting_language"));
+        if (!"zh".equals(greetingLanguage)) { greetingLanguage = "en"; }
         return new Snapshot(conversationId, messageId, visitorId, body,
-                objectMapper.writeValueAsString(objectMapper.createArrayNode().add(target)), accountId, greetingKind);
+                objectMapper.writeValueAsString(objectMapper.createArrayNode().add(target)), accountId, greetingKind, greetingLanguage);
     }
 
     private String required(JsonNode node, String field) {
@@ -69,14 +71,20 @@ public class MissiveInboundMessage {
         private final String toFieldsJson;
         private final String accountId;
         private final String webChatGreetingKind;
+        private final String webChatGreetingLanguage;
         Snapshot(String conversationId, String messageId, String visitorId, String body, String toFieldsJson, String accountId) {
             this(conversationId, messageId, visitorId, body, toFieldsJson, accountId, null);
         }
         Snapshot(String conversationId, String messageId, String visitorId, String body, String toFieldsJson,
                  String accountId, String webChatGreetingKind) {
+            this(conversationId, messageId, visitorId, body, toFieldsJson, accountId, webChatGreetingKind, "en");
+        }
+        Snapshot(String conversationId, String messageId, String visitorId, String body, String toFieldsJson,
+                 String accountId, String webChatGreetingKind, String webChatGreetingLanguage) {
             this.conversationId = conversationId; this.messageId = messageId; this.visitorId = visitorId;
             this.body = body; this.toFieldsJson = toFieldsJson; this.accountId = accountId;
             this.webChatGreetingKind = webChatGreetingKind;
+            this.webChatGreetingLanguage = webChatGreetingLanguage;
         }
         public String getConversationId() { return conversationId; }
         public String getMessageId() { return messageId; }
@@ -85,5 +93,6 @@ public class MissiveInboundMessage {
         public String getToFieldsJson() { return toFieldsJson; }
         public String getAccountId() { return accountId; }
         public String getWebChatGreetingKind() { return webChatGreetingKind; }
+        public String getWebChatGreetingLanguage() { return webChatGreetingLanguage; }
     }
 }

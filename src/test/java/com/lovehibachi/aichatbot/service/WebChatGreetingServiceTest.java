@@ -12,20 +12,27 @@ class WebChatGreetingServiceTest {
 
     @Test
     void usesTheVisitorsTimezoneForAFirstChatGreeting() {
-        String value = greetings.greetingHtml("first", "America/Los_Angeles", Instant.parse("2026-09-29T15:00:00Z"));
+        String value = greetings.greetingHtml("first", "en", "America/Los_Angeles", Instant.parse("2026-09-29T15:00:00Z"));
 
         assertEquals("<p>Good morning! I'm Love Hibachi's AI assistant. How can I help with your event?</p>", value);
     }
 
     @Test
     void makesReturningGreetingShortAfterAThreeHourGap() {
-        String value = greetings.greetingHtml("returning", "America/New_York", Instant.parse("2026-09-29T16:00:00Z"));
+        String value = greetings.greetingHtml("returning", "en", "America/New_York", Instant.parse("2026-09-29T16:00:00Z"));
 
         assertTrue(value.contains("Welcome back!"));
     }
 
     @Test
     void skipsOvernightGreeting() {
-        assertEquals(null, greetings.greetingHtml("first", "America/Los_Angeles", Instant.parse("2026-09-29T10:00:00Z")));
+        assertEquals(null, greetings.greetingHtml("first", "en", "America/Los_Angeles", Instant.parse("2026-09-29T10:00:00Z")));
+    }
+
+    @Test
+    void usesChineseCopyForChineseVisitorMessages() {
+        String value = greetings.greetingHtml("first", "zh", "America/Los_Angeles", Instant.parse("2026-09-29T15:00:00Z"));
+
+        assertEquals("<p>早上好！我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？</p>", value);
     }
 }

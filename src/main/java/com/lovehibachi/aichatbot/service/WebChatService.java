@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
@@ -26,6 +27,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class WebChatService {
     private static final int MAX_MESSAGE_LENGTH = 8000;
+    // This product only needs a Chinese-versus-English greeting choice. Do not
+    // introduce a probabilistic language detector: any Han character means the
+    // visitor receives Chinese copy; every other message receives English copy.
+    private static final Pattern HAN_CHARACTER = Pattern.compile("[\\u3400-\\u4DBF\\u4E00-\\u9FFF]");
     private static final Safelist WEB_CHAT_HTML = Safelist.none().addTags("p", "br", "strong", "b", "em", "i",
             "ul", "ol", "li", "blockquote", "code", "pre", "h1", "h2", "h3", "h4", "a")
             .addAttributes("a", "href", "target", "rel")
@@ -65,6 +70,7 @@ public class WebChatService {
         String externalId = isBlank(clientMessageId) ? "web:" + UUID.randomUUID().toString() : "web:" + clientMessageId;
         ChatConversation existing = conversationRepository.findByWebChatSessionToken(sessionToken).orElse(null);
         String greetingKind = greetingKind(existing);
+        String greetingLanguage = containsChinese(plainBody) ? "zh" : "en";
         MissiveClient.CustomChannelMessageReceipt receipt = missiveClient.receiveCustomChannelMessage(
                 sessionToken, escapeHtml(plainBody), externalId,
                 existing == null ? null : existing.getMissiveConversationId());
@@ -83,7 +89,7 @@ public class WebChatService {
         conversationRepository.save(conversation);
         persistIfAbsent(conversation, receipt.getMessageId(), "user", escapeHtml(plainBody));
         final String payload = syntheticInboundPayload(receipt.getConversationId(), receipt.getMessageId(), sessionToken,
-                plainBody, greetingKind);
+                plainBody, greetingKind, greetingLanguage);
         afterCommit(() -> {
             // The async Fin worker must not race the transaction that created the
             // conversation and visitor message. It can safely query them now.
@@ -149,7 +155,7 @@ public class WebChatService {
     }
 
     private String syntheticInboundPayload(String conversationId, String messageId, String sessionToken, String body,
-                                           String greetingKind) {
+                                           String greetingKind, String greetingLanguage) {
         try {
             Map<String, Object> root = new LinkedHashMap<String, Object>();
             root.put("conversation", java.util.Collections.singletonMap("id", conversationId));
@@ -164,7 +170,10 @@ public class WebChatService {
             message.put("from_field", from);
             root.put("message", message);
             if (greetingKind != null) {
-                root.put("web_chat", java.util.Collections.singletonMap("greeting_kind", greetingKind));
+                Map<String, String> webChat = new LinkedHashMap<String, String>();
+                webChat.put("greeting_kind", greetingKind);
+                webChat.put("greeting_language", greetingLanguage);
+                root.put("web_chat", webChat);
             }
             return objectMapper.writeValueAsString(root);
         } catch (Exception exception) {
@@ -195,6 +204,7 @@ public class WebChatService {
         if (latest == null) { return "first"; }
         return latest.getCreatedAt().isBefore(Instant.now().minusSeconds(3 * 60 * 60)) ? "returning" : null;
     }
+    private boolean containsChinese(String value) { return HAN_CHARACTER.matcher(value).find(); }
     private String normalizeTimezone(String value) {
         if (isBlank(value)) { return null; }
         try { return ZoneId.of(value.trim()).getId(); }

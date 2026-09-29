@@ -173,7 +173,7 @@ public class WebhookEventProcessor {
             newSession.setFinConversationId(finConversationId(conversation.getMissiveConversationId()));
             newSession.setStatus("thinking");
             newSession.setGreetingHtml(webChatGreetingService.greetingHtml(
-                    inbound.getWebChatGreetingKind(), conversation.getWebChatTimezone()));
+                    inbound.getWebChatGreetingKind(), inbound.getWebChatGreetingLanguage(), conversation.getWebChatTimezone()));
             sessionRepository.save(newSession);
             finReplyTurnGate.reset(newSession.getFinConversationId());
             LOGGER.info("Starting Fin session: eventId={}, missiveConversationId={}, finConversationId={}, cycle={}",
@@ -188,7 +188,7 @@ public class WebhookEventProcessor {
             active.setFirstReplySentAt(null);
             active.setLowPeakFollowUpSentAt(null);
             active.setGreetingHtml(webChatGreetingService.greetingHtml(
-                    inbound.getWebChatGreetingKind(), conversation.getWebChatTimezone()));
+                    inbound.getWebChatGreetingKind(), inbound.getWebChatGreetingLanguage(), conversation.getWebChatTimezone()));
             sessionRepository.save(active);
             finReplyTurnGate.reset(active.getFinConversationId());
             LOGGER.info("Continuing Fin session: eventId={}, missiveConversationId={}, finConversationId={}",

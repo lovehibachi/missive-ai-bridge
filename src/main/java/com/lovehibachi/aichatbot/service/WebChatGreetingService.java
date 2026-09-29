@@ -15,28 +15,29 @@ public class WebChatGreetingService {
 
     public WebChatGreetingService(BridgeProperties properties) { this.properties = properties; }
 
-    public String greetingHtml(String kind, String browserTimezone) {
-        return greetingHtml(kind, browserTimezone, Instant.now());
+    public String greetingHtml(String kind, String language, String browserTimezone) {
+        return greetingHtml(kind, language, browserTimezone, Instant.now());
     }
 
-    String greetingHtml(String kind, String browserTimezone, Instant now) {
+    String greetingHtml(String kind, String language, String browserTimezone, Instant now) {
         if (!"first".equals(kind) && !"returning".equals(kind)) { return null; }
         ZonedDateTime local = now.atZone(resolveTimezone(browserTimezone));
         int hour = local.getHour();
         // Do not insert a forced greeting during the visitor's overnight hours.
         if (hour >= 1 && hour <= 5) { return null; }
 
+        boolean chinese = "zh".equals(language);
         String salutation;
         if (isUsFederalHolidayOrEve(local.toLocalDate())) {
-            salutation = "Happy holiday!";
+            salutation = chinese ? "节日快乐！" : "Happy holiday!";
         } else if (hour >= 23 || hour == 0) {
-            salutation = "It's getting late!";
+            salutation = chinese ? "夜深了！" : "It's getting late!";
         } else if (hour < 12) {
-            salutation = "Good morning!";
+            salutation = chinese ? "早上好！" : "Good morning!";
         } else if (hour < 18) {
-            salutation = "Good afternoon!";
+            salutation = chinese ? "下午好！" : "Good afternoon!";
         } else {
-            salutation = "Good evening!";
+            salutation = chinese ? "晚上好！" : "Good evening!";
         }
 
         boolean weekend = local.getDayOfWeek() == DayOfWeek.FRIDAY
@@ -44,11 +45,14 @@ public class WebChatGreetingService {
                 || local.getDayOfWeek() == DayOfWeek.SUNDAY;
         String message;
         if ("returning".equals(kind)) {
-            message = salutation + " Welcome back! How can I help today?";
+            message = chinese ? salutation + "又见面啦！有什么可以帮您？"
+                    : salutation + " Welcome back! How can I help today?";
         } else if (weekend) {
-            message = salutation + " Hope you're having a great weekend. I'm Love Hibachi's AI assistant. How can I help with your event?";
+            message = chinese ? salutation + "周末愉快！我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？"
+                    : salutation + " Hope you're having a great weekend. I'm Love Hibachi's AI assistant. How can I help with your event?";
         } else {
-            message = salutation + " I'm Love Hibachi's AI assistant. How can I help with your event?";
+            message = chinese ? salutation + "我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？"
+                    : salutation + " I'm Love Hibachi's AI assistant. How can I help with your event?";
         }
         return "<p>" + message + "</p>";
     }
