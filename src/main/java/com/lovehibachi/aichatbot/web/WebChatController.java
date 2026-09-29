@@ -93,6 +93,15 @@ public class WebChatController {
         return ResponseEntity.accepted().build();
     }
 
+    /** Receives small client delivery diagnostics; never receives chat text. */
+    @PostMapping("/diagnostics")
+    public ResponseEntity<Void> diagnostics(@RequestHeader(value = "X-Chat-Session", required = false) String session,
+                                            @Valid @RequestBody ClientDiagnostic request) {
+        if (session == null) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing chat session"); }
+        webChatService.reportClientDiagnostic(session, request.getEvent(), request.getLastMessageId(), request.getDetail());
+        return ResponseEntity.accepted().build();
+    }
+
     public static class SendMessage {
         @NotBlank
         private String body;
@@ -104,6 +113,18 @@ public class WebChatController {
         public void setClientMessageId(String clientMessageId) { this.clientMessageId = clientMessageId; }
         public String getBrowserTimezone() { return browserTimezone; }
         public void setBrowserTimezone(String browserTimezone) { this.browserTimezone = browserTimezone; }
+    }
+    public static class ClientDiagnostic {
+        @NotBlank
+        private String event;
+        private String lastMessageId;
+        private String detail;
+        public String getEvent() { return event; }
+        public void setEvent(String event) { this.event = event; }
+        public String getLastMessageId() { return lastMessageId; }
+        public void setLastMessageId(String value) { lastMessageId = value; }
+        public String getDetail() { return detail; }
+        public void setDetail(String value) { detail = value; }
     }
     public static class ChatResponse {
         private final List<WebChatService.WebChatMessage> messages;

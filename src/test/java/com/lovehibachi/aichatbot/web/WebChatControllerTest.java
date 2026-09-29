@@ -30,6 +30,20 @@ class WebChatControllerTest {
         verifyNoStoreHeaders(eventsResponse);
     }
 
+    @Test
+    void forwardsClientPollingDiagnosticsWithoutMessageContent() {
+        WebChatService webChatService = mock(WebChatService.class);
+        WebChatController controller = new WebChatController(webChatService, mock(WebChatNotifier.class), new BridgeProperties());
+        WebChatController.ClientDiagnostic diagnostic = new WebChatController.ClientDiagnostic();
+        diagnostic.setEvent("poll_error");
+        diagnostic.setLastMessageId("message-1");
+        diagnostic.setDetail("Unable to receive messages");
+
+        controller.diagnostics("session-1", diagnostic);
+
+        verify(webChatService).reportClientDiagnostic("session-1", "poll_error", "message-1", "Unable to receive messages");
+    }
+
     private void verifyNoStoreHeaders(HttpServletResponse response) {
         verify(response).setHeader(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, max-age=0, must-revalidate");
         verify(response).setHeader(HttpHeaders.PRAGMA, "no-cache");

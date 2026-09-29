@@ -18,6 +18,8 @@ import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -26,6 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /** Browser-facing message operations for the first-party Custom Channel UI. */
 @Service
 public class WebChatService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebChatService.class);
     private static final int MAX_MESSAGE_LENGTH = 8000;
     // This product only needs a Chinese-versus-English greeting choice. Do not
     // introduce a probabilistic language detector: any Han character means the
@@ -140,6 +143,23 @@ public class WebChatService {
         handoffService.requestHuman(conversation, "Visitor requested a human from website chat");
     }
 
+    /**
+     * Records client-side polling failures without recording customer message
+     * content. These entries make intermittent delivery issues diagnosable
+     * after the browser tab is gone.
+     */
+    @Transactional(readOnly = true)
+    public void reportClientDiagnostic(String sessionToken, String event, String lastMessageId, String detail) {
+        validateSession(sessionToken);
+        if (!"poll_error".equals(event) && !"poll_reconnected".equals(event)) {
+            throw new IllegalArgumentException("Unsupported chat diagnostic event");
+        }
+        ChatConversation conversation = conversationRepository.findByWebChatSessionToken(sessionToken).orElse(null);
+        String conversationId = conversation == null ? "unknown" : conversation.getMissiveConversationId();
+        LOGGER.warn("Web chat client diagnostic: event={}, missiveConversationId={}, sessionRef={}, lastMessageId={}, detail={}",
+                event, conversationId, sessionReference(sessionToken), compactDiagnostic(lastMessageId), compactDiagnostic(detail));
+    }
+
     private void persistIfAbsent(ChatConversation conversation, String externalMessageId, String author, String body) {
         if (messageRepository.existsByExternalMessageId(externalMessageId)) { return; }
         ChatMessage message = new ChatMessage();
@@ -205,6 +225,14 @@ public class WebChatService {
         return latest.getCreatedAt().isBefore(Instant.now().minusSeconds(3 * 60 * 60)) ? "returning" : null;
     }
     private boolean containsChinese(String value) { return HAN_CHARACTER.matcher(value).find(); }
+    private String sessionReference(String value) {
+        return Integer.toUnsignedString(value.hashCode(), 16);
+    }
+    private String compactDiagnostic(String value) {
+        if (value == null) { return ""; }
+        String compact = value.replaceAll("[\\r\\n\\t]", " ").trim();
+        return compact.substring(0, Math.min(160, compact.length()));
+    }
     private String normalizeTimezone(String value) {
         if (isBlank(value)) { return null; }
         try { return ZoneId.of(value.trim()).getId(); }
