@@ -10,6 +10,7 @@ public class BridgeProperties {
     private Fin fin = new Fin();
     private Rules rules = new Rules();
     private Promotions promotions = new Promotions();
+    private HandoffWaiting handoffWaiting = new HandoffWaiting();
     private HandoffLinks handoffLinks = new HandoffLinks();
     private WebChat webChat = new WebChat();
     private Admin admin = new Admin();
@@ -22,6 +23,8 @@ public class BridgeProperties {
     public void setRules(Rules rules) { this.rules = rules; }
     public Promotions getPromotions() { return promotions; }
     public void setPromotions(Promotions promotions) { this.promotions = promotions; }
+    public HandoffWaiting getHandoffWaiting() { return handoffWaiting; }
+    public void setHandoffWaiting(HandoffWaiting handoffWaiting) { this.handoffWaiting = handoffWaiting; }
     public HandoffLinks getHandoffLinks() { return handoffLinks; }
     public void setHandoffLinks(HandoffLinks handoffLinks) { this.handoffLinks = handoffLinks; }
     public WebChat getWebChat() { return webChat; }
@@ -138,6 +141,19 @@ public class BridgeProperties {
         public void setPublicBaseUrl(String value) { publicBaseUrl = value; }
         public long getTtlMinutes() { return ttlMinutes; }
         public void setTtlMinutes(long value) { ttlMinutes = value; }
+    }
+
+    /** Customer-facing reminders while an escalated conversation awaits a human. */
+    public static class HandoffWaiting {
+        private boolean enabled = true;
+        private long reminderDelaySeconds = 120L;
+        private long contactPromptDelaySeconds = 300L;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean value) { enabled = value; }
+        public long getReminderDelaySeconds() { return reminderDelaySeconds; }
+        public void setReminderDelaySeconds(long value) { reminderDelaySeconds = value; }
+        public long getContactPromptDelaySeconds() { return contactPromptDelaySeconds; }
+        public void setContactPromptDelaySeconds(long value) { contactPromptDelaySeconds = value; }
     }
 
     /** Credentials for deliberate operator actions; never expose this token to visitors. */

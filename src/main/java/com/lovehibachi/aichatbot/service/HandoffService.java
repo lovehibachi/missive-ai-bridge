@@ -13,10 +13,13 @@ public class HandoffService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HandoffService.class);
     private final ChatConversationRepository conversationRepository;
     private final MissiveClient missiveClient;
+    private final HandoffWaitingService handoffWaitingService;
 
-    public HandoffService(ChatConversationRepository conversationRepository, MissiveClient missiveClient) {
+    public HandoffService(ChatConversationRepository conversationRepository, MissiveClient missiveClient,
+                          HandoffWaitingService handoffWaitingService) {
         this.conversationRepository = conversationRepository;
         this.missiveClient = missiveClient;
+        this.handoffWaitingService = handoffWaitingService;
     }
 
     @Transactional
@@ -32,6 +35,7 @@ public class HandoffService {
                 conversation.getMissiveConversationId(), conversation.getState());
         conversation.setState(ConversationState.HUMAN_NEEDED);
         conversation.setEscalationReason(reason);
+        handoffWaitingService.beginWaiting(conversation, java.time.Instant.now());
         conversationRepository.save(conversation);
         missiveClient.createHandoffPost(conversation, reason);
         missiveClient.sendHumanHandoffAcknowledgement(conversation);

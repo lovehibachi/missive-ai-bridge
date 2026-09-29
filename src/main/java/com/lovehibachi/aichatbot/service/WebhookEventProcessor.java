@@ -44,6 +44,7 @@ public class WebhookEventProcessor {
     private final FinClient finClient;
     private final MissiveClient missiveClient;
     private final HandoffService handoffService;
+    private final HandoffWaitingService handoffWaitingService;
     private final FinReplyTurnGate finReplyTurnGate;
     private final FinReplyRenderer finReplyRenderer;
     private final WebChatGreetingService webChatGreetingService;
@@ -59,6 +60,7 @@ public class WebhookEventProcessor {
                                  FinClient finClient,
                                  MissiveClient missiveClient,
                                  HandoffService handoffService,
+                                 HandoffWaitingService handoffWaitingService,
                                  FinReplyTurnGate finReplyTurnGate,
                                  FinReplyRenderer finReplyRenderer,
                                  WebChatGreetingService webChatGreetingService,
@@ -73,6 +75,7 @@ public class WebhookEventProcessor {
         this.finClient = finClient;
         this.missiveClient = missiveClient;
         this.handoffService = handoffService;
+        this.handoffWaitingService = handoffWaitingService;
         this.finReplyTurnGate = finReplyTurnGate;
         this.finReplyRenderer = finReplyRenderer;
         this.webChatGreetingService = webChatGreetingService;
@@ -153,6 +156,7 @@ public class WebhookEventProcessor {
         recordMessage(conversation, inbound.getMessageId(), "user", inbound.getBody());
 
         if (conversation.getState() != ConversationState.AI_HANDLING) {
+            handoffWaitingService.handleVisitorMessage(conversation, inbound.getBody(), Instant.now());
             LOGGER.info("Ignored Missive message because conversation is not AI-handled: eventId={}, missiveConversationId={}, state={}",
                     event.getId(), conversation.getMissiveConversationId(), conversation.getState());
             return;

@@ -59,6 +59,14 @@ public class AiResumeService {
         sessionRepository.saveAll(sessions);
         conversation.setState(ConversationState.AI_HANDLING);
         conversation.setEscalationReason(null);
+        // Cancel any outstanding human-wait automation before returning the
+        // conversation to Fin. A later scheduler run must not message it.
+        conversation.setHandoffWaitingSince(null);
+        conversation.setHandoffWaitReminderSentAt(null);
+        conversation.setHandoffContactPromptSentAt(null);
+        conversation.setHandoffContactAttempts(0);
+        conversation.setHandoffContactCompletedAt(null);
+        conversation.setHandoffHumanReplyAt(null);
         conversationRepository.save(conversation);
         LOGGER.info("AI handling resumed: missiveConversationId={}, supersededFinSessions={}",
                 missiveConversationId, sessions.size());

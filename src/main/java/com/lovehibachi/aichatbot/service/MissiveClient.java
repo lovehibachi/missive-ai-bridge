@@ -63,7 +63,9 @@ public class MissiveClient {
         recipients.add(recipient);
         message.put("to_fields", recipients);
         if (!isBlank(existingConversationId)) { message.put("conversation", existingConversationId); }
-        if (!isBlank(properties.getMissive().getAiTeamId())) {
+        // New conversations begin in the AI Team. Do not move an existing
+        // human-handoff conversation back to AI when its visitor follows up.
+        if (isBlank(existingConversationId) && !isBlank(properties.getMissive().getAiTeamId())) {
             message.put("team", properties.getMissive().getAiTeamId());
         }
         Map<String, Object> request = new LinkedHashMap<String, Object>();
@@ -113,6 +115,28 @@ public class MissiveClient {
         sendCustomerReply(conversation,
                 "<p>We’re connecting you with a member of our team. Please hold on.</p>",
                 "send_human_handoff_acknowledgement");
+    }
+
+    /** Sent by the handoff-wait scheduler, not by Fin. */
+    public void sendHandoffWaitingReminder(ChatConversation conversation) {
+        sendCustomerReply(conversation, HandoffWaitingService.WAITING_REMINDER_HTML,
+                "send_handoff_waiting_reminder");
+    }
+
+    /** Sent only if a human has not replied after the longer waiting threshold. */
+    public void sendHandoffContactPrompt(ChatConversation conversation) {
+        sendCustomerReply(conversation, HandoffWaitingService.CONTACT_PROMPT_HTML,
+                "send_handoff_contact_prompt");
+    }
+
+    public void sendHandoffContactRetry(ChatConversation conversation) {
+        sendCustomerReply(conversation, HandoffWaitingService.CONTACT_RETRY_HTML,
+                "send_handoff_contact_retry");
+    }
+
+    public void sendHandoffContactThankYou(ChatConversation conversation) {
+        sendCustomerReply(conversation, HandoffWaitingService.CONTACT_THANK_YOU_HTML,
+                "send_handoff_contact_thank_you");
     }
 
     /** Sends a single customer-facing follow-up after an unanswered Fin reply. */

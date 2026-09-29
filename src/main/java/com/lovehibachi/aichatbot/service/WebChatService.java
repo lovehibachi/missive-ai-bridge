@@ -42,6 +42,7 @@ public class WebChatService {
     private final ChatMessageRepository messageRepository;
     private final MissiveClient missiveClient;
     private final HandoffService handoffService;
+    private final HandoffWaitingService handoffWaitingService;
     private final WebhookIntakeService intakeService;
     private final WebChatNotifier notifier;
     private final ObjectMapper objectMapper;
@@ -51,6 +52,7 @@ public class WebChatService {
                           ChatMessageRepository messageRepository,
                           MissiveClient missiveClient,
                           HandoffService handoffService,
+                          HandoffWaitingService handoffWaitingService,
                           WebhookIntakeService intakeService,
                           WebChatNotifier notifier,
                           ObjectMapper objectMapper,
@@ -59,6 +61,7 @@ public class WebChatService {
         this.messageRepository = messageRepository;
         this.missiveClient = missiveClient;
         this.handoffService = handoffService;
+        this.handoffWaitingService = handoffWaitingService;
         this.intakeService = intakeService;
         this.notifier = notifier;
         this.objectMapper = objectMapper;
@@ -125,11 +128,18 @@ public class WebChatService {
 
     @Transactional
     public void receiveOutboundCustomChannelMessage(String missiveConversationId, String externalMessageId, String body) {
+        receiveOutboundCustomChannelMessage(missiveConversationId, externalMessageId, body, Instant.now());
+    }
+
+    @Transactional
+    public void receiveOutboundCustomChannelMessage(String missiveConversationId, String externalMessageId,
+                                                     String body, Instant messageCreatedAt) {
         ChatConversation conversation = conversationRepository.findByMissiveConversationId(missiveConversationId).orElse(null);
         if (conversation == null || isBlank(conversation.getWebChatSessionToken())) {
             return;
         }
         persistIfAbsent(conversation, externalMessageId, "agent", sanitizeHtml(body));
+        handoffWaitingService.recordPotentialHumanReply(conversation, body, messageCreatedAt);
         final String sessionToken = conversation.getWebChatSessionToken();
         afterCommit(() -> notifier.notifyMessage(sessionToken));
     }

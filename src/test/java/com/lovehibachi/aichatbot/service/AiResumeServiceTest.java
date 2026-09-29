@@ -34,6 +34,10 @@ class AiResumeServiceTest {
         conversation.setMissiveConversationId("missive-1");
         conversation.setState(ConversationState.HUMAN_NEEDED);
         conversation.setEscalationReason("Customer asked for a person");
+        conversation.setHandoffWaitingSince(Instant.now());
+        conversation.setHandoffWaitReminderSentAt(Instant.now());
+        conversation.setHandoffContactPromptSentAt(Instant.now());
+        conversation.setHandoffHumanReplyAt(Instant.now());
         FinSession newest = session(conversation, "awaiting_user_reply");
         FinSession older = session(conversation, "escalated");
         when(conversationRepository.findByMissiveConversationId("missive-1")).thenReturn(Optional.of(conversation));
@@ -45,6 +49,10 @@ class AiResumeServiceTest {
         assertEquals(AiResumeService.Result.RESUMED, result);
         assertEquals(ConversationState.AI_HANDLING, conversation.getState());
         assertNull(conversation.getEscalationReason());
+        assertNull(conversation.getHandoffWaitingSince());
+        assertNull(conversation.getHandoffWaitReminderSentAt());
+        assertNull(conversation.getHandoffContactPromptSentAt());
+        assertNull(conversation.getHandoffHumanReplyAt());
         assertSuperseded(newest);
         assertSuperseded(older);
         verify(missiveClient).resumeAiHandling(conversation);

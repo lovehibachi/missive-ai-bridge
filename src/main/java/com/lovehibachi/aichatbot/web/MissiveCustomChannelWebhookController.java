@@ -6,6 +6,7 @@ import com.lovehibachi.aichatbot.config.BridgeProperties;
 import com.lovehibachi.aichatbot.service.SignatureVerifier;
 import com.lovehibachi.aichatbot.service.WebChatService;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -60,7 +61,8 @@ public class MissiveCustomChannelWebhookController {
         if (isBlank(conversationId) || isBlank(messageId) || isBlank(body)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Custom Channel webhook has no message, conversation, or body");
         }
-        webChatService.receiveOutboundCustomChannelMessage(conversationId, "custom:" + messageId, body);
+        webChatService.receiveOutboundCustomChannelMessage(conversationId, "custom:" + messageId, body,
+                messageCreatedAt(message));
         LOGGER.info("Accepted Custom Channel outbound message: missiveConversationId={}, messageId={}", conversationId, messageId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
@@ -80,4 +82,8 @@ public class MissiveCustomChannelWebhookController {
         return null;
     }
     private boolean isBlank(String value) { return value == null || value.trim().isEmpty(); }
+    private Instant messageCreatedAt(JsonNode message) {
+        long seconds = message.path("created_at").asLong(0L);
+        return seconds > 0L ? Instant.ofEpochSecond(seconds) : Instant.now();
+    }
 }

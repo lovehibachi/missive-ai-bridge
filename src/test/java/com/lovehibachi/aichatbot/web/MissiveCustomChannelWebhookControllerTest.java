@@ -2,6 +2,8 @@ package com.lovehibachi.aichatbot.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +30,6 @@ class MissiveCustomChannelWebhookControllerTest {
 
         assertEquals(HttpStatus.ACCEPTED, controller.outbound("signature", payload).getStatusCode());
         verify(webChatService).receiveOutboundCustomChannelMessage(
-                "conversation-1", "custom:message-1", "Hello");
+                eq("conversation-1"), eq("custom:message-1"), eq("Hello"), any(java.time.Instant.class));
     }
 }

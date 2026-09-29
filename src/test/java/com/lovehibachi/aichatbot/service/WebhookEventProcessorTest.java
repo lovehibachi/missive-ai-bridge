@@ -43,6 +43,7 @@ class WebhookEventProcessorTest {
     @Mock private FinClient finClient;
     @Mock private MissiveClient missiveClient;
     @Mock private HandoffService handoffService;
+    @Mock private HandoffWaitingService handoffWaitingService;
     @Mock private FinReplyTurnGate finReplyTurnGate;
 
     @Test
@@ -260,7 +261,7 @@ class WebhookEventProcessorTest {
 
     private WebhookEventProcessor processor(BridgeProperties properties) {
         return new WebhookEventProcessor(eventRepository, conversationRepository, messageRepository, sessionRepository,
-                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, finReplyTurnGate,
+                inboundMessage, hardRuleEngine, finClient, missiveClient, handoffService, handoffWaitingService, finReplyTurnGate,
                 new FinReplyRenderer(), new WebChatGreetingService(properties), new ObjectMapper(), properties);
     }
 

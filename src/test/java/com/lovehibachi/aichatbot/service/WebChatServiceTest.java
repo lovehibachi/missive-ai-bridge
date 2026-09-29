@@ -97,7 +97,8 @@ class WebChatServiceTest {
 
     private WebChatService service(ChatConversationRepository conversations, ChatMessageRepository messages,
                                    MissiveClient missive, WebhookIntakeService intake) {
-        return new WebChatService(conversations, messages, missive, mock(HandoffService.class), intake,
-                mock(WebChatNotifier.class), new ObjectMapper(), new BridgeProperties());
+        return new WebChatService(conversations, messages, missive, mock(HandoffService.class),
+                mock(HandoffWaitingService.class), intake, mock(WebChatNotifier.class),
+                new ObjectMapper(), new BridgeProperties());
     }
 }
