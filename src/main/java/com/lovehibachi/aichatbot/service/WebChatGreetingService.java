@@ -45,14 +45,14 @@ public class WebChatGreetingService {
                 || local.getDayOfWeek() == DayOfWeek.SUNDAY;
         String message;
         if ("returning".equals(kind)) {
-            message = chinese ? salutation + "又见面啦！有什么可以帮您？"
-                    : salutation + " Welcome back! How can I help today?";
+            message = chinese ? salutation + "又见面啦！很高兴为您服务。"
+                    : salutation + " Welcome back! It's a pleasure to assist you.";
         } else if (weekend) {
-            message = chinese ? salutation + "周末愉快！我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？"
-                    : salutation + " Hope you're having a great weekend. I'm Love Hibachi's AI assistant. How can I help with your event?";
+            message = chinese ? salutation + "周末愉快！我是 Love Hibachi 的 AI 助手。很高兴为您服务。"
+                    : salutation + " Hope you're having a great weekend. I'm Love Hibachi's AI assistant. It's a pleasure to assist you.";
         } else {
-            message = chinese ? salutation + "我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？"
-                    : salutation + " I'm Love Hibachi's AI assistant. How can I help with your event?";
+            message = chinese ? salutation + "我是 Love Hibachi 的 AI 助手。很高兴为您服务。"
+                    : salutation + " I'm Love Hibachi's AI assistant. It's a pleasure to assist you.";
         }
         return "<p>" + message + "</p>";
     }

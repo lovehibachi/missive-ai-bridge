@@ -14,7 +14,7 @@ class WebChatGreetingServiceTest {
     void usesTheVisitorsTimezoneForAFirstChatGreeting() {
         String value = greetings.greetingHtml("first", "en", "America/Los_Angeles", Instant.parse("2026-09-29T15:00:00Z"));
 
-        assertEquals("<p>Good morning! I'm Love Hibachi's AI assistant. How can I help with your event?</p>", value);
+        assertEquals("<p>Good morning! I'm Love Hibachi's AI assistant. It's a pleasure to assist you.</p>", value);
     }
 
     @Test
@@ -33,6 +33,6 @@ class WebChatGreetingServiceTest {
     void usesChineseCopyForChineseVisitorMessages() {
         String value = greetings.greetingHtml("first", "zh", "America/Los_Angeles", Instant.parse("2026-09-29T15:00:00Z"));
 
-        assertEquals("<p>早上好！我是 Love Hibachi 的 AI 助手。有什么可以帮您安排活动吗？</p>", value);
+        assertEquals("<p>早上好！我是 Love Hibachi 的 AI 助手。很高兴为您服务。</p>", value);
     }
 }
